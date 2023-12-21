@@ -6,7 +6,7 @@
 
 #include <fixed/fixed.h>
 #include <pde_solvers/pde_solvers.h>
-#include "problems/test_problems.h"
+#include "problems/solve_problems.h"
 
 #include <iostream>
 #include <fstream>
@@ -20,8 +20,16 @@ inline std::string get_test_string() {
     return test_string;
 }
 
+inline std::string prepare_test_folder()
+{
+    std::string path = std::string("output/");
+    std::filesystem::create_directories(path);
+    return path;
+}
+
 int main(int argc, char** argv)
 {
+    prepare_test_folder();
     ::testing::InitGoogleTest(&argc, argv);
 #ifdef _WIN32
     std::wcout.imbue(std::locale("rus_rus.866"));
