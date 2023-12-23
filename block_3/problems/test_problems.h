@@ -1,24 +1,24 @@
-#pragma once
-/// @brief тип данных для лямбды-функции в методе эйлера
+п»ї#pragma once
+/// @brief С‚РёРї РґР°РЅРЅС‹С… РґР»СЏ Р»СЏРјР±РґС‹-С„СѓРЅРєС†РёРё РІ РјРµС‚РѕРґРµ СЌР№Р»РµСЂР°
 typedef std::function<double(size_t& index)> diff_function_t;
-/// @brief тип данных для хранения слоёв
+/// @brief С‚РёРї РґР°РЅРЅС‹С… РґР»СЏ С…СЂР°РЅРµРЅРёСЏ СЃР»РѕС‘РІ
 typedef composite_layer_t<profile_collection_t<2>,
     moc_solver<2>::specific_layer> layer_t;
 
-/// @brief Функция для записи только профилей давления 
-/// в разные моменты времени
-/// @param press ссылка на профиль давления
-/// @param dx шаг по координате
-/// @param dt шаг по времени
-/// @param step текущий шаг моделирования
-/// @param filename название файла для записи
+/// @brief Р¤СѓРЅРєС†РёСЏ РґР»СЏ Р·Р°РїРёСЃРё С‚РѕР»СЊРєРѕ РїСЂРѕС„РёР»РµР№ РґР°РІР»РµРЅРёСЏ 
+/// РІ СЂР°Р·РЅС‹Рµ РјРѕРјРµРЅС‚С‹ РІСЂРµРјРµРЅРё
+/// @param press СЃСЃС‹Р»РєР° РЅР° РїСЂРѕС„РёР»СЊ РґР°РІР»РµРЅРёСЏ
+/// @param dx С€Р°Рі РїРѕ РєРѕРѕСЂРґРёРЅР°С‚Рµ
+/// @param dt С€Р°Рі РїРѕ РІСЂРµРјРµРЅРё
+/// @param step С‚РµРєСѓС‰РёР№ С€Р°Рі РјРѕРґРµР»РёСЂРѕРІР°РЅРёСЏ
+/// @param filename РЅР°Р·РІР°РЅРёРµ С„Р°Р№Р»Р° РґР»СЏ Р·Р°РїРёСЃРё
 void write_press_profile_only(vector<double>& press, double& dx, double& dt, size_t step, std::string filename = "output/press_prof.csv") {
     std::ofstream press_file;
     size_t profCount = press.size();
     if (step == 0)
     {
         press_file.open(filename);
-        press_file << "time,x,Давление" << std::endl;
+        press_file << "time,x,Р”Р°РІР»РµРЅРёРµ" << std::endl;
     }
     else
         press_file.open(filename, std::ios::app);
@@ -31,14 +31,14 @@ void write_press_profile_only(vector<double>& press, double& dx, double& dt, siz
 
     press_file.close();
 }
-/// @brief Функция для записи профилей всех параметров
-/// в разные моменты времени
-/// @param layer ссылка на слой 
-/// @param press_prof ссылка на профиль давления
-/// @param dx шаг по координате
-/// @param dt шаг по времени
-/// @param step текщий шаг моделирования
-/// @param filename название файла для записи
+/// @brief Р¤СѓРЅРєС†РёСЏ РґР»СЏ Р·Р°РїРёСЃРё РїСЂРѕС„РёР»РµР№ РІСЃРµС… РїР°СЂР°РјРµС‚СЂРѕРІ
+/// РІ СЂР°Р·РЅС‹Рµ РјРѕРјРµРЅС‚С‹ РІСЂРµРјРµРЅРё
+/// @param layer СЃСЃС‹Р»РєР° РЅР° СЃР»РѕР№ 
+/// @param press_prof СЃСЃС‹Р»РєР° РЅР° РїСЂРѕС„РёР»СЊ РґР°РІР»РµРЅРёСЏ
+/// @param dx С€Р°Рі РїРѕ РєРѕРѕСЂРґРёРЅР°С‚Рµ
+/// @param dt С€Р°Рі РїРѕ РІСЂРµРјРµРЅРё
+/// @param step С‚РµРєС‰РёР№ С€Р°Рі РјРѕРґРµР»РёСЂРѕРІР°РЅРёСЏ
+/// @param filename РЅР°Р·РІР°РЅРёРµ С„Р°Р№Р»Р° РґР»СЏ Р·Р°РїРёСЃРё
 void write_profiles(
     layer_t& layer, vector<double>& press_prof, double& dx, double& dt, size_t step,
     std::string filename = "output/profiles.csv")
@@ -49,7 +49,7 @@ void write_profiles(
     if (step == 0)
     {
         file.open(filename);
-        file << "time,x,Плотность,Вязкость,Давление" << std::endl;
+        file << "time,x,РџР»РѕС‚РЅРѕСЃС‚СЊ,Р’СЏР·РєРѕСЃС‚СЊ,Р”Р°РІР»РµРЅРёРµ" << std::endl;
     }
     else
         file.open(filename, std::ios::app);
@@ -63,15 +63,15 @@ void write_profiles(
     file.close();
 }
 
-/// @brief Класс для решения задач по квазистационару 
+/// @brief РљР»Р°СЃСЃ РґР»СЏ СЂРµС€РµРЅРёСЏ Р·Р°РґР°С‡ РїРѕ РєРІР°Р·РёСЃС‚Р°С†РёРѕРЅР°СЂСѓ 
 class Quasistationary : public ::testing::Test
 {
 public:
-    /// @brief Алгоритм расчёта методом характеристик
-    /// @param prev Ссылка на предыдущий профиль
-    /// @param next Ссылка на текущий профиль
-    /// @param par_in Параметр вытесняющей партии
-    /// @param direction Направление течения потока
+    /// @brief РђР»РіРѕСЂРёС‚Рј СЂР°СЃС‡С‘С‚Р° РјРµС‚РѕРґРѕРј С…Р°СЂР°РєС‚РµСЂРёСЃС‚РёРє
+    /// @param prev РЎСЃС‹Р»РєР° РЅР° РїСЂРµРґС‹РґСѓС‰РёР№ РїСЂРѕС„РёР»СЊ
+    /// @param next РЎСЃС‹Р»РєР° РЅР° С‚РµРєСѓС‰РёР№ РїСЂРѕС„РёР»СЊ
+    /// @param par_in РџР°СЂР°РјРµС‚СЂ РІС‹С‚РµСЃРЅСЏСЋС‰РµР№ РїР°СЂС‚РёРё
+    /// @param direction РќР°РїСЂР°РІР»РµРЅРёРµ С‚РµС‡РµРЅРёСЏ РїРѕС‚РѕРєР°
     void moc_solver(vector<double>& prev, vector<double>& next, double& par_in, int& direction)
     {
         size_t start_index = direction > 0 ? 1 : (prev.size()) - 2;
@@ -81,12 +81,12 @@ public:
             next[index] = prev[index - direction];
     }
 
-    /// @brief Функция для решения методом характеристик
-    /// @param prev Ссылка на предыдущий слой
-    /// @param next Ссылка на текущий слой
-    /// @param rho_in Плотность вытесняющей партии
-    /// @param visc_in Вязкость вытесняющей партии
-    /// @param direction Направление течения потока
+    /// @brief Р¤СѓРЅРєС†РёСЏ РґР»СЏ СЂРµС€РµРЅРёСЏ РјРµС‚РѕРґРѕРј С…Р°СЂР°РєС‚РµСЂРёСЃС‚РёРє
+    /// @param prev РЎСЃС‹Р»РєР° РЅР° РїСЂРµРґС‹РґСѓС‰РёР№ СЃР»РѕР№
+    /// @param next РЎСЃС‹Р»РєР° РЅР° С‚РµРєСѓС‰РёР№ СЃР»РѕР№
+    /// @param rho_in РџР»РѕС‚РЅРѕСЃС‚СЊ РІС‹С‚РµСЃРЅСЏСЋС‰РµР№ РїР°СЂС‚РёРё
+    /// @param visc_in Р’СЏР·РєРѕСЃС‚СЊ РІС‹С‚РµСЃРЅСЏСЋС‰РµР№ РїР°СЂС‚РёРё
+    /// @param direction РќР°РїСЂР°РІР»РµРЅРёРµ С‚РµС‡РµРЅРёСЏ РїРѕС‚РѕРєР°
     void moc_solve(layer_t& prev, layer_t& next, double& rho_in, double& visc_in, int direction = 1)
     {
         size_t num_profiles = prev.vars.point_double.size();
@@ -95,10 +95,10 @@ public:
             moc_solver(prev.vars.point_double[p], next.vars.point_double[p], parametrs_in[p], direction);
     }
 
-    /// @brief Алгоритм решения методом Эйлера
-    /// @param press_prof Ссылка на профиль давления
-    /// @param right_part Производная в точке, умноженная на шаг по координате 
-    /// @param direction Направление расчёта давления
+    /// @brief РђР»РіРѕСЂРёС‚Рј СЂРµС€РµРЅРёСЏ РјРµС‚РѕРґРѕРј Р­Р№Р»РµСЂР°
+    /// @param press_prof РЎСЃС‹Р»РєР° РЅР° РїСЂРѕС„РёР»СЊ РґР°РІР»РµРЅРёСЏ
+    /// @param right_part РџСЂРѕРёР·РІРѕРґРЅР°СЏ РІ С‚РѕС‡РєРµ, СѓРјРЅРѕР¶РµРЅРЅР°СЏ РЅР° С€Р°Рі РїРѕ РєРѕРѕСЂРґРёРЅР°С‚Рµ 
+    /// @param direction РќР°РїСЂР°РІР»РµРЅРёРµ СЂР°СЃС‡С‘С‚Р° РґР°РІР»РµРЅРёСЏ
     void QP_Euler_solver(vector<double>& press_prof, const diff_function_t& right_part, int& direction)
     {
         size_t start_index = direction > 0 ? 1 : (press_prof.size()) - 2;
@@ -109,28 +109,28 @@ public:
         }
     }
 
-    /// @brief Задание функции производной и запуск алгоритма
-    /// @param layer Ссылка на текущий слой
-    /// @param press_prof Ссылка на профиль давления
-    /// @param speed Скорость потока
-    /// @param direction Направление расчёта давления
+    /// @brief Р—Р°РґР°РЅРёРµ С„СѓРЅРєС†РёРё РїСЂРѕРёР·РІРѕРґРЅРѕР№ Рё Р·Р°РїСѓСЃРє Р°Р»РіРѕСЂРёС‚РјР°
+    /// @param layer РЎСЃС‹Р»РєР° РЅР° С‚РµРєСѓС‰РёР№ СЃР»РѕР№
+    /// @param press_prof РЎСЃС‹Р»РєР° РЅР° РїСЂРѕС„РёР»СЊ РґР°РІР»РµРЅРёСЏ
+    /// @param speed РЎРєРѕСЂРѕСЃС‚СЊ РїРѕС‚РѕРєР°
+    /// @param direction РќР°РїСЂР°РІР»РµРЅРёРµ СЂР°СЃС‡С‘С‚Р° РґР°РІР»РµРЅРёСЏ
     void euler_solve(layer_t& layer, vector<double>& press_prof, double& speed, int direction = 1)
     {
-        // Профиль плотности, для учёта при рисчёте движения партий 
+        // РџСЂРѕС„РёР»СЊ РїР»РѕС‚РЅРѕСЃС‚Рё, РґР»СЏ СѓС‡С‘С‚Р° РїСЂРё СЂРёСЃС‡С‘С‚Рµ РґРІРёР¶РµРЅРёСЏ РїР°СЂС‚РёР№ 
         vector<double>& density = layer.vars.point_double[0];
-        // Профиль вязкости, для учёта при рисчёте движения партий 
+        // РџСЂРѕС„РёР»СЊ РІСЏР·РєРѕСЃС‚Рё, РґР»СЏ СѓС‡С‘С‚Р° РїСЂРё СЂРёСЃС‡С‘С‚Рµ РґРІРёР¶РµРЅРёСЏ РїР°СЂС‚РёР№ 
         vector<double>& viscosity = layer.vars.point_double[1];
-        // функция производной
-        // возвращает значение производной в точке, умноженное на шаг по координате
+        // С„СѓРЅРєС†РёСЏ РїСЂРѕРёР·РІРѕРґРЅРѕР№
+        // РІРѕР·РІСЂР°С‰Р°РµС‚ Р·РЅР°С‡РµРЅРёРµ РїСЂРѕРёР·РІРѕРґРЅРѕР№ РІ С‚РѕС‡РєРµ, СѓРјРЅРѕР¶РµРЅРЅРѕРµ РЅР° С€Р°Рі РїРѕ РєРѕРѕСЂРґРёРЅР°С‚Рµ
         diff_function_t right_part =
             [this, speed, density, viscosity, direction](size_t& index)
             {
-                double eps = pipe.wall.relativeRoughness(); // Расчёт относительной шероховатости
-                double Re = speed * pipe.wall.diameter / viscosity[index]; // Расчёт числа Рейнольдса
-                double lambda = pipe.resistance_function(Re, eps); // Расчёт коэффициента лямбда
-                double dz = pipe.profile.heights[index - direction] - pipe.profile.heights[index]; // Расчёт перепада высот
-                double dx = pipe.profile.coordinates[index - direction] - pipe.profile.coordinates[index]; // Расчёт шага по координате
-                // Расчёт производной
+                double eps = pipe.wall.relativeRoughness(); // Р Р°СЃС‡С‘С‚ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕР№ С€РµСЂРѕС…РѕРІР°С‚РѕСЃС‚Рё
+                double Re = speed * pipe.wall.diameter / viscosity[index]; // Р Р°СЃС‡С‘С‚ С‡РёСЃР»Р° Р РµР№РЅРѕР»СЊРґСЃР°
+                double lambda = pipe.resistance_function(Re, eps); // Р Р°СЃС‡С‘С‚ РєРѕСЌС„С„РёС†РёРµРЅС‚Р° Р»СЏРјР±РґР°
+                double dz = pipe.profile.heights[index - direction] - pipe.profile.heights[index]; // Р Р°СЃС‡С‘С‚ РїРµСЂРµРїР°РґР° РІС‹СЃРѕС‚
+                double dx = pipe.profile.coordinates[index - direction] - pipe.profile.coordinates[index]; // Р Р°СЃС‡С‘С‚ С€Р°РіР° РїРѕ РєРѕРѕСЂРґРёРЅР°С‚Рµ
+                // Р Р°СЃС‡С‘С‚ РїСЂРѕРёР·РІРѕРґРЅРѕР№
                 double diff = lambda * (1 / pipe.wall.diameter) * density[index] * pow(speed, 2) / 2 - dz / dx * density[index] * M_G;
                 return dx * diff;
             };
@@ -139,22 +139,22 @@ public:
     }
 
 protected:
-    /// @brief Параметры трубы
+    /// @brief РџР°СЂР°РјРµС‚СЂС‹ С‚СЂСѓР±С‹
     pipe_properties_t pipe; 
-    /// @brief Параметры нефти
+    /// @brief РџР°СЂР°РјРµС‚СЂС‹ РЅРµС„С‚Рё
     oil_parameters_t oil;
-    // Время моделирования
+    // Р’СЂРµРјСЏ РјРѕРґРµР»РёСЂРѕРІР°РЅРёСЏ
     size_t T = 1000;
-    // Давление в начале участка трубопровода
+    // Р”Р°РІР»РµРЅРёРµ РІ РЅР°С‡Р°Р»Рµ СѓС‡Р°СЃС‚РєР° С‚СЂСѓР±РѕРїСЂРѕРІРѕРґР°
     double p0 = 6e6;
-    // Плотность вытесняющей партии
+    // РџР»РѕС‚РЅРѕСЃС‚СЊ РІС‹С‚РµСЃРЅСЏСЋС‰РµР№ РїР°СЂС‚РёРё
     double rho_in = 800;
-    // Вязкость вытесняющей партии
+    // Р’СЏР·РєРѕСЃС‚СЊ РІС‹С‚РµСЃРЅСЏСЋС‰РµР№ РїР°СЂС‚РёРё
     double visc_in = 10e-6;
-    // Расход потока
+    // Р Р°СЃС…РѕРґ РїРѕС‚РѕРєР°
     double flow = 0.5;
 
-    /// @brief Конструктор, инициализирующий параметры трубы и нефти 
+    /// @brief РљРѕРЅСЃС‚СЂСѓРєС‚РѕСЂ, РёРЅРёС†РёР°Р»РёР·РёСЂСѓСЋС‰РёР№ РїР°СЂР°РјРµС‚СЂС‹ С‚СЂСѓР±С‹ Рё РЅРµС„С‚Рё 
     virtual void SetUp() override
     {
         double x0 = 0;
@@ -184,19 +184,19 @@ TEST_F(Quasistationary, EulerWithMOC)
     ring_buffer_t<layer_t> buffer(2, pipe.profile.getPointCount());
 
     buffer.advance(+1);
-    // инициализация начальной плотности
+    // РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РЅР°С‡Р°Р»СЊРЅРѕР№ РїР»РѕС‚РЅРѕСЃС‚Рё
     buffer.previous().vars.point_double[0] = vector<double>(pipe.profile.getPointCount(), oil.density.nominal_density); 
-    // инициализация начальной вязкости
+    // РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РЅР°С‡Р°Р»СЊРЅРѕР№ РІСЏР·РєРѕСЃС‚Рё
     buffer.previous().vars.point_double[1] = vector<double>(pipe.profile.getPointCount(), oil.viscosity.nominal_viscosity);
-    // инициализация профиля давления
+    // РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїСЂРѕС„РёР»СЏ РґР°РІР»РµРЅРёСЏ
     vector<double> press_prof(pipe.profile.getPointCount(), p0);
    
-    double speed = flow / pipe.wall.getArea(); // Расчёт скорости потока
+    double speed = flow / pipe.wall.getArea(); // Р Р°СЃС‡С‘С‚ СЃРєРѕСЂРѕСЃС‚Рё РїРѕС‚РѕРєР°
     double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
     double dt = (dx) / speed;
     size_t N = static_cast<size_t>(T / dt);
     
-    euler_solve(buffer.previous(), press_prof, speed); // Расчёт профиля давления в начальный момент времени
+    euler_solve(buffer.previous(), press_prof, speed); // Р Р°СЃС‡С‘С‚ РїСЂРѕС„РёР»СЏ РґР°РІР»РµРЅРёСЏ РІ РЅР°С‡Р°Р»СЊРЅС‹Р№ РјРѕРјРµРЅС‚ РІСЂРµРјРµРЅРё
 
     write_profiles(buffer.previous(), press_prof, dx, dt, 0);
     write_press_profile_only(press_prof, dx, dt, 0);
