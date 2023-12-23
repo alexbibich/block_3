@@ -67,7 +67,20 @@ void write_profiles(
 class Quasistationary : public ::testing::Test
 {
 public:
-    
+    /// @brief Алгоритм метода характеристик
+    /// @param prev Ссылка на предыдущий профиль
+    /// @param next Ссылка на текущий профиль
+    /// @param par_in Параметр вытесняющей партии
+    /// @param direction Направление течения потока
+    void moc_solver(vector<double>& prev, vector<double>& next, double& par_in, int& direction)
+    {
+        size_t start_index = direction > 0 ? 1 : (prev.size()) - 2;
+        size_t end_index = direction < 0 ? 0 : (prev.size());
+        next[start_index - direction] = par_in;
+        for (size_t index = start_index; index != end_index; index += direction)
+            next[index] = prev[index - direction];
+    }
+
     /// @brief Функция для решения методом характеристик
     /// @param prev Ссылка на предыдущий слой
     /// @param next Ссылка на текущий слой
@@ -76,20 +89,10 @@ public:
     /// @param direction Направление течения потока
     void moc_solve(layer_t& prev, layer_t& next, double& rho_in, double& visc_in, int direction = 1)
     {
-        size_t start_index = direction > 0 ? 1 : (prev.vars.point_double[0].size()) - 2;
-        size_t end_index = direction < 0 ? 0 : (prev.vars.point_double[0].size());
         size_t num_profiles = prev.vars.point_double.size();
         double parametrs_in[] = { rho_in, visc_in };
-        for (size_t index = start_index; index != end_index; index += direction)
-        {
-            for (size_t p = 0; p < num_profiles; p++)
-            {
-                if (index == start_index)
-                    next.vars.point_double[p][index - direction] = parametrs_in[p];
-                
-                next.vars.point_double[p][index] = prev.vars.point_double[p][index - direction];
-            }
-        }
+        for (size_t p = 0; p < num_profiles; p++)
+            moc_solver(prev.vars.point_double[p], next.vars.point_double[p], parametrs_in[p], direction);
     }
 
     /// @brief Алгоритм решения методом Эйлера
