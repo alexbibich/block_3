@@ -67,7 +67,7 @@ void write_profiles(
 class Quasistationary : public ::testing::Test
 {
 public:
-    /// @brief Алгоритм метода характеристик
+    /// @brief Алгоритм расчёта методом характеристик
     /// @param prev Ссылка на предыдущий профиль
     /// @param next Ссылка на текущий профиль
     /// @param par_in Параметр вытесняющей партии
