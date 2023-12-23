@@ -9,7 +9,7 @@ typedef composite_layer_t<profile_collection_t<2>,
 /// @param oil Ссылка на структуру нефти
 void init_cond(pipe_properties_t& pipe, oil_parameters_t& oil)
 {
-    double L = 8e+4;
+    double L = 500;
     double x0 = 0;
     double xl = 8e4;
     double D = 0.720;
@@ -20,7 +20,7 @@ void init_cond(pipe_properties_t& pipe, oil_parameters_t& oil)
     double ro = 860;
     double visc = 15e-6;
     double p_capacity = 10e6;
-    size_t n = 1000;
+    size_t n = 100;
 
     pipe.profile = PipeProfile::create(n, x0, xl, z0, zl, p_capacity);
     pipe.wall.wallThickness = thickness;
@@ -40,7 +40,7 @@ void write_profiles(
     if (step == 0)
     {
         file.open(filename);
-        file << "time,x,Плотность,Вязкость, Давление" << std::endl;
+        file << "time,x,Плотность,Вязкость,Давление" << std::endl;
     } else
         file.open(filename, std::ios::app);
     
@@ -61,14 +61,14 @@ public:
     {
         double num_points = prev.vars.point_double[0].size();
         double num_profiles = prev.vars.point_double.size();
-        for (size_t index = 0; index < num_points; index++)
+        for (size_t index = 1; index < num_points; index++)
         {
             for (size_t p = 0; p < num_profiles; p++)
             {
-                if (index == 0)
-                    next.vars.point_double[p][index] = parametrs_in[p];
+                if (index == 1)
+                    next.vars.point_double[p][index-1] = parametrs_in[p];
                 else
-                    next.vars.point_double[p][index] = prev.vars.point_double[p][index];
+                    next.vars.point_double[p][index] = prev.vars.point_double[p][index-1];
             }
         }
     }
@@ -76,10 +76,9 @@ public:
     void QP_Euler_solver(vector<double>& press_prof, const diff_function_t& right_part, int& direction)
     {
         size_t start_index = direction > 0 ? 1 : (press_prof.size()) - 2;
-        size_t end_index = direction < 0 ? 0 : (press_prof.size()) - 1;
+        size_t end_index = direction < 0 ? 0 : (press_prof.size());
         for (size_t index = start_index; index != end_index; index += direction)
         {
-            double p = press_prof[index - direction];
             press_prof[index] = press_prof[index - direction] + direction * right_part(index);
         }
     }
@@ -94,9 +93,9 @@ public:
                 double eps = pipe.wall.relativeRoughness(); // Расчёт относительной шероховатости
                 double Re = speed * pipe.wall.diameter / viscosity[index]; // Расчёт числа Рейнольдса
                 double lambda = pipe.resistance_function(Re, eps);
-                double dz = pipe.profile.heights[index] - pipe.profile.heights[index + direction];
-                double dx = pipe.profile.coordinates[index] - pipe.profile.coordinates[index + direction];
-                double diff = lambda * (1 / pipe.wall.diameter) * density[index] * pow(speed, 2) / 2 - dz / dx * density[index];
+                double dz = pipe.profile.heights[index - direction] - pipe.profile.heights[index];
+                double dx = pipe.profile.coordinates[index - direction] - pipe.profile.coordinates[index];
+                double diff = lambda * (1 / pipe.wall.diameter) * density[index] * pow(speed, 2) / 2 - dz / dx * density[index] * M_G;
                 return dx * diff;
             };
 
