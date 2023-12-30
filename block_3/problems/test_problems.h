@@ -2,8 +2,7 @@
 /// @brief тип данных для лямбды-функции в методе эйлера
 typedef std::function<double(size_t& index)> diff_function_t;
 /// @brief тип данных для хранения слоёв
-typedef composite_layer_t<profile_collection_t<2>,
-    moc_solver<2>::specific_layer> layer_t;
+typedef profile_collection_t<3> layer_t;
 
 /// @brief Функция для записи только профилей давления 
 /// в разные моменты времени
@@ -40,12 +39,12 @@ void write_press_profile_only(vector<double>& press, double& dx, double& dt, siz
 /// @param step текщий шаг моделирования
 /// @param filename название файла для записи
 void write_profiles(
-    layer_t& layer, vector<double>& press_prof, double& dx, double& dt, size_t step,
+    layer_t& layer, double& dx, double& dt, size_t step,
     std::string filename = "output/profiles.csv")
 {
     std::ofstream file;
     std::ofstream press_file;
-    size_t profCount = layer.vars.point_double[0].size();
+    size_t profCount = layer.point_double[0].size();
     if (step == 0)
     {
         file.open(filename);
@@ -58,7 +57,7 @@ void write_profiles(
     for (int i = 0; i < profCount; i++)
     {
         file << dt * step << "," << i * dx;
-        file << "," << layer.vars.point_double[0][i] << "," << layer.vars.point_double[1][i] << "," << press_prof[i] << std::endl;
+        file << "," << layer.point_double[0][i] << "," << layer.point_double[1][i] << "," << layer.point_double[2][i] << std::endl;
     }
     file.close();
 }
@@ -89,9 +88,9 @@ public:
     /// @param direction Направление течения потока
     void moc_solve(layer_t& prev, layer_t& next, double *parametrs_in, int direction = 1)
     {
-        size_t num_profiles = prev.vars.point_double.size();
+        size_t num_profiles = prev.point_double.size();
         for (size_t p = 0; p < num_profiles; p++)
-            moc_solver(prev.vars.point_double[p], next.vars.point_double[p], parametrs_in[p], direction);
+            moc_solver(prev.point_double[p], next.point_double[p], parametrs_in[p], direction);
     }
 
     /// @brief Алгоритм решения методом Эйлера
@@ -114,12 +113,15 @@ public:
     /// @param press_prof Ссылка на профиль давления
     /// @param speed Скорость потока
     /// @param direction Направление расчёта давления
-    void euler_solve(layer_t& layer, vector<double>& press_prof, double& speed, size_t direction = 1)
+    void euler_solve(layer_t& layer_prev, layer_t& layer_next, double& speed, size_t direction = 1)
     {
         // Профиль плотности, для учёта при рисчёте движения партий 
-        vector<double>& density = layer.vars.point_double[0];
+        vector<double>& density = layer_next.point_double[0];
         // Профиль вязкости, для учёта при рисчёте движения партий 
-        vector<double>& viscosity = layer.vars.point_double[1];
+        vector<double>& viscosity = layer_next.point_double[1];
+        // Перенос значений давления с предыдущего на текущий слой
+        layer_next.point_double[2] = layer_prev.point_double[2];
+
         // функция производной
         // возвращает значение производной в точке, умноженное на шаг по координате
         diff_function_t right_part =
@@ -135,7 +137,7 @@ public:
                 return dx * diff;
             };
 
-        QP_Euler_solver(press_prof, right_part, direction);
+        QP_Euler_solver(layer_next.point_double[2], right_part, direction);
     }
 
 protected:
@@ -186,11 +188,11 @@ TEST_F(Quasistationary, EulerWithMOC)
 
     buffer.advance(+1);
     // инициализация начальной плотности
-    buffer.previous().vars.point_double[0] = vector<double>(pipe.profile.getPointCount(), oil.density.nominal_density); 
+    buffer.previous().point_double[0] = vector<double>(pipe.profile.getPointCount(), oil.density.nominal_density); 
     // инициализация начальной вязкости
-    buffer.previous().vars.point_double[1] = vector<double>(pipe.profile.getPointCount(), oil.viscosity.nominal_viscosity);
+    buffer.previous().point_double[1] = vector<double>(pipe.profile.getPointCount(), oil.viscosity.nominal_viscosity);
     // инициализация профиля давления
-    vector<double> press_prof(pipe.profile.getPointCount(), p0);
+    buffer.previous().point_double[2] = vector<double>(pipe.profile.getPointCount(), p0);
    
     double speed = flow / pipe.wall.getArea(); // Расчёт скорости потока
     double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
@@ -198,17 +200,13 @@ TEST_F(Quasistationary, EulerWithMOC)
     size_t N = static_cast<size_t>(T / dt);
     double input_parameters[] = { rho_in, visc_in };
 
-    euler_solve(buffer.previous(), press_prof, speed); // Расчёт профиля давления в начальный момент времени
-    write_profiles(buffer.previous(), press_prof, dx, dt, 0);
-    write_press_profile_only(press_prof, dx, dt, 0);
-
     for (size_t i = 1; i < N; i++)
     {
         moc_solve(buffer.previous(), buffer.current(), input_parameters);
-        euler_solve(buffer.current(), press_prof, speed);
+        euler_solve(buffer.previous(), buffer.current(), speed);
 
-        write_profiles(buffer.current(), press_prof, dx, dt, i);
-        write_press_profile_only(press_prof, dx, dt, i);
+        write_profiles(buffer.current(), dx, dt, i);
+        write_press_profile_only(buffer.current().point_double[2], dx, dt, i);
 
         buffer.advance(+1);
     }
