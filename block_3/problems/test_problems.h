@@ -87,7 +87,7 @@ public:
     /// @param rho_in Плотность вытесняющей партии
     /// @param visc_in Вязкость вытесняющей партии
     /// @param direction Направление течения потока
-    void moc_solve(layer_t& prev, layer_t& next, double parametrs_in[], int direction = 1)
+    void moc_solve(layer_t& prev, layer_t& next, double *parametrs_in, int direction = 1)
     {
         size_t num_profiles = prev.vars.point_double.size();
         for (size_t p = 0; p < num_profiles; p++)
