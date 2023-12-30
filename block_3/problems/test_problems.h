@@ -87,10 +87,9 @@ public:
     /// @param rho_in Плотность вытесняющей партии
     /// @param visc_in Вязкость вытесняющей партии
     /// @param direction Направление течения потока
-    void moc_solve(layer_t& prev, layer_t& next, double& rho_in, double& visc_in, int direction = 1)
+    void moc_solve(layer_t& prev, layer_t& next, double parametrs_in[], int direction = 1)
     {
         size_t num_profiles = prev.vars.point_double.size();
-        double parametrs_in[] = { rho_in, visc_in };
         for (size_t p = 0; p < num_profiles; p++)
             moc_solver(prev.vars.point_double[p], next.vars.point_double[p], parametrs_in[p], direction);
     }
@@ -99,13 +98,14 @@ public:
     /// @param press_prof Ссылка на профиль давления
     /// @param right_part Производная в точке, умноженная на шаг по координате 
     /// @param direction Направление расчёта давления
-    void QP_Euler_solver(vector<double>& press_prof, const diff_function_t& right_part, int& direction)
+    void QP_Euler_solver(vector<double>& press_prof, const diff_function_t& right_part, size_t& direction)
     {
         size_t start_index = direction > 0 ? 1 : (press_prof.size()) - 2;
         size_t end_index = direction < 0 ? 0 : (press_prof.size());
         for (size_t index = start_index; index != end_index; index += direction)
         {
-            press_prof[index] = press_prof[index - direction] + direction * right_part(index);
+            size_t prev_index = index - direction;
+            press_prof[index] = press_prof[prev_index] + direction * right_part(prev_index);
         }
     }
 
@@ -114,7 +114,7 @@ public:
     /// @param press_prof Ссылка на профиль давления
     /// @param speed Скорость потока
     /// @param direction Направление расчёта давления
-    void euler_solve(layer_t& layer, vector<double>& press_prof, double& speed, int direction = 1)
+    void euler_solve(layer_t& layer, vector<double>& press_prof, double& speed, size_t direction = 1)
     {
         // Профиль плотности, для учёта при рисчёте движения партий 
         vector<double>& density = layer.vars.point_double[0];
@@ -128,8 +128,8 @@ public:
                 double eps = pipe.wall.relativeRoughness(); // Расчёт относительной шероховатости
                 double Re = speed * pipe.wall.diameter / viscosity[index]; // Расчёт числа Рейнольдса
                 double lambda = pipe.resistance_function(Re, eps); // Расчёт коэффициента лямбда
-                double dz = pipe.profile.heights[index - direction] - pipe.profile.heights[index]; // Расчёт перепада высот
-                double dx = pipe.profile.coordinates[index - direction] - pipe.profile.coordinates[index]; // Расчёт шага по координате
+                double dz = pipe.profile.heights[index] - pipe.profile.heights[index + direction]; // Расчёт перепада высот
+                double dx = pipe.profile.coordinates[index] - pipe.profile.coordinates[index + direction]; // Расчёт шага по координате
                 // Расчёт производной
                 double diff = lambda * (1 / pipe.wall.diameter) * density[index] * pow(speed, 2) / 2 - dz / dx * density[index] * M_G;
                 return dx * diff;
@@ -153,6 +153,7 @@ protected:
     double visc_in = 10e-6;
     // Расход потока
     double flow = 0.5;
+
 
     /// @brief Конструктор, инициализирующий параметры трубы и нефти 
     virtual void SetUp() override
@@ -195,15 +196,15 @@ TEST_F(Quasistationary, EulerWithMOC)
     double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
     double dt = (dx) / speed;
     size_t N = static_cast<size_t>(T / dt);
-    
-    euler_solve(buffer.previous(), press_prof, speed); // Расчёт профиля давления в начальный момент времени
+    double input_parameters[] = { rho_in, visc_in };
 
+    euler_solve(buffer.previous(), press_prof, speed); // Расчёт профиля давления в начальный момент времени
     write_profiles(buffer.previous(), press_prof, dx, dt, 0);
     write_press_profile_only(press_prof, dx, dt, 0);
 
     for (size_t i = 1; i < N; i++)
     {
-        moc_solve(buffer.previous(), buffer.current(), rho_in, visc_in);
+        moc_solve(buffer.previous(), buffer.current(), input_parameters);
         euler_solve(buffer.current(), press_prof, speed);
 
         write_profiles(buffer.current(), press_prof, dx, dt, i);
