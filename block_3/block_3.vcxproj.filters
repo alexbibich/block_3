@@ -23,7 +23,7 @@
     <ClInclude Include="problems\test_problems.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="problems\solve_problems.h">
+    <ClInclude Include="problems\transport_moc_solver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

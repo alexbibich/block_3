@@ -1,4 +1,7 @@
 ﻿#pragma once
+
+#include "transport_moc_solver.h"
+
 /// @brief тип данных для лямбды-функции в методе эйлера
 typedef std::function<double(size_t& index)> diff_function_t;
 /// @brief тип данных для хранения слоёв
@@ -21,7 +24,7 @@ void write_press_profile_only(vector<double>& press, double& dx, double& dt, siz
     }
     else
         press_file.open(filename, std::ios::app);
-  
+
     for (int i = 0; i < profCount; i++)
     {
         press_file << dt * step << "," << i * dx;
@@ -29,7 +32,8 @@ void write_press_profile_only(vector<double>& press, double& dx, double& dt, siz
     }
 
     press_file.close();
-}
+};
+
 /// @brief Функция для записи профилей всех параметров
 /// в разные моменты времени
 /// @param layer ссылка на слой 
@@ -210,5 +214,22 @@ TEST_F(Quasistationary, EulerWithMOC)
 
         buffer.advance(+1);
     }
+
+}
+
+TEST_F(Quasistationary, Testing)
+{
+    vector<double> Q = { 0, 1, 2 };
+    vector<double> rho = { 3, 4, 5 };
+    vector<double> visc = { 6, 7, 8 };
+
+    double dt = 0.5;
+    
+    vector<vector<double>> parameters_val{ Q, rho, visc };
+    size_t count_input_series{ parameters_val.size() };
+    vector<double> moments(count_input_series, dt);
+
+    input_parameters_t<double> parameters(count_input_series);
+    parameters.input_parameters(moments, parameters_val);
 
 }

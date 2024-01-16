@@ -12,6 +12,8 @@
 #include <filesystem>
 
 #include "problems/test_problems.h"
+#include "problems/transport_moc_solver.h"
+
 
 inline std::string get_test_string() {
     auto test_info = ::testing::UnitTest::GetInstance()->current_test_info();
@@ -25,6 +27,8 @@ inline std::string prepare_test_folder()
     std::filesystem::create_directories(path);
     return path;
 }
+
+
 
 int main(int argc, char** argv)
 {
