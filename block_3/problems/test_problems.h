@@ -70,32 +70,6 @@ void write_profiles(
 class Quasistationary : public ::testing::Test
 {
 public:
-    /// @brief Алгоритм расчёта методом характеристик
-    /// @param prev Ссылка на предыдущий профиль
-    /// @param next Ссылка на текущий профиль
-    /// @param par_in Параметр вытесняющей партии
-    /// @param direction Направление течения потока
-    void moc_solver(vector<double>& prev, vector<double>& next, double& par_in, int& direction)
-    {
-        size_t start_index = direction > 0 ? 1 : (prev.size()) - 2;
-        size_t end_index = direction < 0 ? 0 : (prev.size());
-        next[start_index - direction] = par_in;
-        for (size_t index = start_index; index != end_index; index += direction)
-            next[index] = prev[index - direction];
-    }
-
-    /// @brief Функция для решения методом характеристик
-    /// @param prev Ссылка на предыдущий слой
-    /// @param next Ссылка на текущий слой
-    /// @param rho_in Плотность вытесняющей партии
-    /// @param visc_in Вязкость вытесняющей партии
-    /// @param direction Направление течения потока
-    void moc_solve(layer_t& prev, layer_t& next, double *parametrs_in, int direction = 1)
-    {
-        size_t num_profiles = prev.point_double.size();
-        for (size_t p = 0; p < num_profiles; p++)
-            moc_solver(prev.point_double[p], next.point_double[p], parametrs_in[p], direction);
-    }
 
     /// @brief Алгоритм решения методом Эйлера
     /// @param press_prof Ссылка на профиль давления
@@ -188,48 +162,61 @@ protected:
 
 TEST_F(Quasistationary, EulerWithMOC)
 {
-    ring_buffer_t<layer_t> buffer(2, pipe.profile.getPointCount());
+    //ring_buffer_t<layer_t> buffer(2, pipe.profile.getPointCount());
 
-    buffer.advance(+1);
-    // инициализация начальной плотности
-    buffer.previous().point_double[0] = vector<double>(pipe.profile.getPointCount(), oil.density.nominal_density); 
-    // инициализация начальной вязкости
-    buffer.previous().point_double[1] = vector<double>(pipe.profile.getPointCount(), oil.viscosity.nominal_viscosity);
-    // инициализация профиля давления
-    buffer.previous().point_double[2] = vector<double>(pipe.profile.getPointCount(), p0);
+    //buffer.advance(+1);
+    //// инициализация начальной плотности
+    //buffer.previous().point_double[0] = vector<double>(pipe.profile.getPointCount(), oil.density.nominal_density); 
+    //// инициализация начальной вязкости
+    //buffer.previous().point_double[1] = vector<double>(pipe.profile.getPointCount(), oil.viscosity.nominal_viscosity);
+    //// инициализация профиля давления
+    //buffer.previous().point_double[2] = vector<double>(pipe.profile.getPointCount(), p0);
    
-    double speed = flow / pipe.wall.getArea(); // Расчёт скорости потока
-    double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
-    double dt = (dx) / speed;
-    size_t N = static_cast<size_t>(T / dt);
-    double input_parameters[] = { rho_in, visc_in };
+    //double speed = flow / pipe.wall.getArea(); // Расчёт скорости потока
+    //double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
+    //double dt = (dx) / speed;
+    //size_t N = static_cast<size_t>(T / dt);
+    //double input_parameters[] = { rho_in, visc_in };
 
-    for (size_t i = 1; i < N; i++)
-    {
-        moc_solve(buffer.previous(), buffer.current(), input_parameters);
-        euler_solve(buffer.previous(), buffer.current(), speed);
+    //for (size_t i = 1; i < N; i++)
+    //{
+    //    moc_solve(buffer.previous(), buffer.current(), input_parameters);
+    //    euler_solve(buffer.previous(), buffer.current(), speed);
 
-        write_profiles(buffer.current(), dx, dt, i);
-        write_press_profile_only(buffer.current().point_double[2], dx, dt, i);
+    //    write_profiles(buffer.current(), dx, dt, i);
+    //    write_press_profile_only(buffer.current().point_double[2], dx, dt, i);
 
-        buffer.advance(+1);
-    }
+    //    buffer.advance(+1);
+    //}
 
 }
 
 TEST_F(Quasistationary, Testing)
 {
-    vector<double> Q = { 0, 1, 2 };
-    vector<double> rho = { 3, 4, 5 };
-    vector<double> visc = { 6, 7, 8 };
-
     double dt = 0.5;
-    
+
+    vector<double> Q = { 0, 1, 2, 3, 4, 5};
+    vector<double> rho = { 3, 4, 5, 6, 7, 8 };
+    vector<double> visc = { 6, 7, 8, 9, 10, 11 };
+
     vector<vector<double>> parameters_val{ Q, rho, visc };
     size_t count_input_series{ parameters_val.size() };
-    vector<double> moments(count_input_series, dt);
 
-    input_parameters_t<double> parameters(count_input_series);
-    parameters.input_parameters(moments, parameters_val);
+    input_parameters_t parameters(count_input_series);
+
+    vector<vector<double>> moments(count_input_series, parameters.build_series(dt, count_input_series));
+
+    vector<vector<vector<double>>> test =
+    {
+        {{dt}, Q},
+        {{dt}, rho},
+        {{dt}, visc}
+    };
+
+    parameters.input_parameters(dt, parameters_val);
+
+    double test_time = 1.5;
+
+    transport_moc_solver::interpolation(test_time, parameters.parameters_series[0]);
 
 }

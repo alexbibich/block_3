@@ -1,16 +1,50 @@
 ﻿#pragma once
 
+#define TIME_INDEX 0
+#define PAR_INDEX 1
+
 typedef vector < array<double, 2> > time_series_t;
+/// @brief тип данных для хранения слоёв
+typedef profile_collection_t<3> layer_t;
 
 class transport_moc_solver
 {
 public:
 
     transport_moc_solver(const pipe_properties_t& pipe,
-        const vector<double>& vol_flow)
-        : pipe(pipe)
-        , Q(vol_flow)
+        const vector<double>& vol_flow, const vector<time_series_t>& par)
+        : pipe(pipe),
+        Q(vol_flow),
+        parameters{ par }
     {}
+
+    /// @brief Алгоритм расчёта методом характеристик
+    /// @param prev Ссылка на предыдущий профиль
+    /// @param next Ссылка на текущий профиль
+    /// @param par_in Параметр вытесняющей партии
+    /// @param direction Направление течения потока
+    void solve(vector<double>& prev, vector<double>& next, double& par_in, int& direction)
+    {
+        size_t start_index = direction > 0 ? 1 : (prev.size()) - 2;
+        size_t end_index = direction < 0 ? 0 : (prev.size());
+        next[start_index - direction] = par_in;
+        for (size_t index = start_index; index != end_index; index += direction)
+            next[index] = prev[index - direction];
+    }
+
+    /// @brief Функция для решения методом характеристик
+    /// @param prev Ссылка на предыдущий слой
+    /// @param next Ссылка на текущий слой
+    /// @param rho_in Плотность вытесняющей партии
+    /// @param visc_in Вязкость вытесняющей партии
+    /// @param direction Направление течения потока
+    void step(layer_t& prev, layer_t& next, double* parametrs_in)
+    {
+        size_t num_profiles = prev.point_double.size();
+        int direction = getEigenvals(0) > 0 ? 1 : -1;
+        for (size_t p = 0; p < num_profiles; p++)
+            solve(prev.point_double[p], next.point_double[p], parametrs_in[p], direction);
+    }
 
     vector<double> getGrid()
     {
@@ -23,7 +57,7 @@ public:
         return Q[index] / S;
     }
 
-    double prepare_step(double time_step = std::numeric_limits<double>::quiet_NaN())
+    double prepare_step()
     {
         vector<double> grid = getGrid();
         double max_eigen = 0;
@@ -37,10 +71,38 @@ public:
         double dx = grid[1] - grid[0];
         double courant_step = dx / max_eigen;
 
-        if (std::isnan(time_step) || time_step > courant_step) {
-            time_step = courant_step;
+        return courant_step;
+    }
+
+    static double interpolation(double& time_moment, time_series_t& parameter)
+    {
+        size_t left_index = 0;
+        size_t right_index = parameter.size()-1;
+        size_t center_index = right_index / 2;
+
+        if (parameter[left_index][TIME_INDEX] <= time_moment)
+        {
+            if (parameter[right_index][TIME_INDEX] <= time_moment)
+                return parameter[right_index][PAR_INDEX];
         }
-        return time_step;
+        else
+            return parameter[left_index][PAR_INDEX];
+
+        while (left_index != center_index)
+        {
+            if (parameter[center_index][TIME_INDEX] >= time_moment)
+                right_index = center_index;
+            else
+                left_index = center_index;
+
+            center_index = (right_index + left_index) / 2;
+        }
+        double dt = parameter[right_index][TIME_INDEX] - parameter[left_index][TIME_INDEX];
+        double u1 = (parameter[right_index][TIME_INDEX] - time_moment) / dt;
+        double u2 = (time_moment - parameter[left_index][TIME_INDEX]) / dt;
+        double res_par = parameter[left_index][PAR_INDEX] * u1 + parameter[right_index][PAR_INDEX] * u2;
+
+        return res_par;
     }
 
 protected:
@@ -48,9 +110,11 @@ protected:
     const pipe_properties_t& pipe;
     /// @brief Объемный расход
     const vector<double>& Q;
+    /// @brief Временные ряды краевых условий
+    const vector<time_series_t>& parameters;
 };
 
-template <typename time_type>
+
 struct input_parameters_t
 {
     vector<time_series_t> parameters_series;
@@ -60,7 +124,7 @@ struct input_parameters_t
         : count_parameters{ count_par }
     {}
 
-    void input_parameters(vector<time_type>& moments, vector<vector<double>>& par)
+    void input_parameters(vector<vector<double>>& moments, vector<vector<double>>& par)
     {
         for (size_t index = 0; index < count_parameters; index++)
         {
@@ -69,16 +133,29 @@ struct input_parameters_t
         }
     }
 
-    time_series_t build_parameters(double& dt, vector<double>& parameter)
+    void input_parameters(vector<vector<vector<double>>>& parameters_moments)
     {
-        time_series_t par(parameter.size());
-        for (size_t index = 0; index < parameter.size(); index++)
+        for (size_t index = 0; index < count_parameters; index++)
         {
-            par[index][0] = parameter[index];
-            par[index][1] = dt * index;
-        }
+            vector<double> moments;
+            if (parameters_moments[index][TIME_INDEX].size() == 1)
+                moments = build_series(parameters_moments[index][TIME_INDEX][0], parameters_moments[index][PAR_INDEX].size());
+            else
+                moments = parameters_moments[index][TIME_INDEX];
 
-        return par;
+            time_series_t series = build_parameters(moments, parameters_moments[index][PAR_INDEX]);
+            parameters_series.push_back(series);
+        }
+    }
+
+    void input_parameters(double dt, vector<vector<double>>& par)
+    {
+        vector<double> moments = build_series(dt, par[0].size());
+        for (size_t index = 0; index < count_parameters; index++)
+        {
+            time_series_t series = build_parameters(moments, par[index]);
+            parameters_series.push_back(series);
+        }
     }
 
     time_series_t build_parameters(vector<double>& moments, vector<double>& parameter)
@@ -86,24 +163,21 @@ struct input_parameters_t
         time_series_t par(parameter.size());
         for (size_t index = 0; index < parameter.size(); index++)
         {
-            par[index][0] = parameter[index];
-            par[index][1] = moments[index];
+            par[index][0] = moments[index];
+            par[index][1] = parameter[index];
         }
 
         return par;
     }
 
+    vector<double> build_series(double& dt, size_t length)
+    {
+        vector<double> time_ser(length);
+        for (size_t index = 0; index < length; index++)
+            time_ser[index] = dt * index;
+        return time_ser;
+    }
+
     
+  
 };
-
-
-//template<size_t count_parameters>
-//struct parameters_series_t
-//{
-//    vector<time_series_t> parameters_series(count_parameters);
-//
-//    void input_parameters()
-//    {
-//
-//    }
-//};
