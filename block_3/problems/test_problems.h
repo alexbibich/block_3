@@ -195,28 +195,26 @@ TEST_F(Quasistationary, Testing)
 {
     double dt = 0.5;
 
-    vector<double> Q = { 0, 1, 2, 3, 4, 5};
-    vector<double> rho = { 3, 4, 5, 6, 7, 8 };
-    vector<double> visc = { 6, 7, 8, 9, 10, 11 };
+    
+    vector<double> rho = { 800, 850, 870, 830, 860, 850 };
+    vector<double> visc = { 10e-6, 12e-6, 14e-6, 11e-6, 14e-6, 13e-6 };
 
-    vector<vector<double>> parameters_val{ Q, rho, visc };
-    size_t count_input_series{ parameters_val.size() };
+    vector<double> Q(3, flow);
+
+    vector<vector<double>> parameters_val{ rho, visc };
+    size_t count_input_series = parameters_val.size();
 
     input_parameters_t parameters(count_input_series);
 
-    vector<vector<double>> moments(count_input_series, parameters.build_series(dt, count_input_series));
-
-    vector<vector<vector<double>>> test =
-    {
-        {{dt}, Q},
-        {{dt}, rho},
-        {{dt}, visc}
-    };
-
     parameters.input_parameters(dt, parameters_val);
 
-    double test_time = 1.5;
+    transport_moc_solver(pipe, Q, parameters.parameters_series);
 
-    transport_moc_solver::interpolation(test_time, parameters.parameters_series[0]);
+    double modeling_time = 0;
+
+    while (modeling_time <= T)
+    {
+
+    }
 
 }

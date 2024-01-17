@@ -38,12 +38,19 @@ public:
     /// @param rho_in Плотность вытесняющей партии
     /// @param visc_in Вязкость вытесняющей партии
     /// @param direction Направление течения потока
-    void step(layer_t& prev, layer_t& next, double* parametrs_in)
+    void step(layer_t& prev, layer_t& next, double& time_moment)
     {
         size_t num_profiles = prev.point_double.size();
+        vector<double> parameters_in = get_inter_parameters(time_moment);
         int direction = getEigenvals(0) > 0 ? 1 : -1;
         for (size_t p = 0; p < num_profiles; p++)
-            solve(prev.point_double[p], next.point_double[p], parametrs_in[p], direction);
+            solve(prev.point_double[p], next.point_double[p], parameters_in[p], direction);
+    }
+
+    vector<double> get_inter_parameters(double& time_moment)
+    {
+        vector<double> input_parameters{ interpolation(time_moment, parameters[0]), interpolation(time_moment, parameters[1]) };
+        return input_parameters;
     }
 
     vector<double> getGrid()
@@ -74,7 +81,7 @@ public:
         return courant_step;
     }
 
-    static double interpolation(double& time_moment, time_series_t& parameter)
+    static double interpolation(double& time_moment, const time_series_t& parameter)
     {
         size_t left_index = 0;
         size_t right_index = parameter.size()-1;
@@ -148,7 +155,7 @@ struct input_parameters_t
         }
     }
 
-    void input_parameters(double dt, vector<vector<double>>& par)
+    void input_parameters(double& dt, vector<vector<double>>& par)
     {
         vector<double> moments = build_series(dt, par[0].size());
         for (size_t index = 0; index < count_parameters; index++)
