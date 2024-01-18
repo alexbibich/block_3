@@ -3,6 +3,8 @@
 #define TIME_INDEX 0
 #define PAR_INDEX 1
 
+#include<testing/test_moc.h>
+
 typedef vector < array<double, 2> > time_series_t;
 /// @brief тип данных для хранения слоёв
 typedef profile_collection_t<3> layer_t;
@@ -12,10 +14,11 @@ class transport_moc_solver
 public:
 
     transport_moc_solver(const pipe_properties_t& pipe,
-        const vector<double>& vol_flow, const vector<time_series_t>& par)
+        const vector<double>& vol_flow,
+        density_viscosity_layer& prev, density_viscosity_layer& next)
         : pipe(pipe),
         Q(vol_flow),
-        parameters{ par }
+        prev{ prev }, next{ next }
     {}
 
     /// @brief Алгоритм расчёта методом характеристик
@@ -23,34 +26,18 @@ public:
     /// @param next Ссылка на текущий профиль
     /// @param par_in Параметр вытесняющей партии
     /// @param direction Направление течения потока
-    void solve(vector<double>& prev, vector<double>& next, double& par_in, int& direction)
+    void step(array<double, 2> par_in)
     {
-        size_t start_index = direction > 0 ? 1 : (prev.size()) - 2;
-        size_t end_index = direction < 0 ? 0 : (prev.size());
-        next[start_index - direction] = par_in;
-        for (size_t index = start_index; index != end_index; index += direction)
-            next[index] = prev[index - direction];
-    }
-
-    /// @brief Функция для решения методом характеристик
-    /// @param prev Ссылка на предыдущий слой
-    /// @param next Ссылка на текущий слой
-    /// @param rho_in Плотность вытесняющей партии
-    /// @param visc_in Вязкость вытесняющей партии
-    /// @param direction Направление течения потока
-    void step(layer_t& prev, layer_t& next, double& time_moment)
-    {
-        size_t num_profiles = prev.point_double.size();
-        vector<double> parameters_in = get_inter_parameters(time_moment);
         int direction = getEigenvals(0) > 0 ? 1 : -1;
-        for (size_t p = 0; p < num_profiles; p++)
-            solve(prev.point_double[p], next.point_double[p], parameters_in[p], direction);
-    }
-
-    vector<double> get_inter_parameters(double& time_moment)
-    {
-        vector<double> input_parameters{ interpolation(time_moment, parameters[0]), interpolation(time_moment, parameters[1]) };
-        return input_parameters;
+        size_t start_index = direction > 0 ? 1 : (prev.density.size()) - 2;
+        size_t end_index = direction < 0 ? 0 : (prev.density.size());
+        next.density[start_index - direction] = par_in[0];
+        next.viscosity[start_index - direction] = par_in[1];
+        for (size_t index = start_index; index != end_index; index += direction)
+        {
+            next.density[index] = prev.density[index - direction];
+            next.viscosity[index] = prev.viscosity[index - direction];
+        }
     }
 
     vector<double> getGrid()
@@ -79,6 +66,14 @@ public:
         double courant_step = dx / max_eigen;
 
         return courant_step;
+    }
+
+    array<double, 2> get_par_in(double& time_moment, time_series_t& density, time_series_t& viscosity)
+    {
+        double rho_in = interpolation(time_moment, density);
+        double visc_in = interpolation(time_moment, viscosity);
+
+        return { rho_in, visc_in };
     }
 
     static double interpolation(double& time_moment, const time_series_t& parameter)
@@ -117,51 +112,47 @@ protected:
     const pipe_properties_t& pipe;
     /// @brief Объемный расход
     const vector<double>& Q;
-    /// @brief Временные ряды краевых условий
-    const vector<time_series_t>& parameters;
+    /// @brief Проблемно-ориентированные слои
+    density_viscosity_layer& prev;
+    density_viscosity_layer& next;
 };
 
 
-struct input_parameters_t
+struct parameters_series_t
 {
-    vector<time_series_t> parameters_series;
-    size_t count_parameters;
+    vector<time_series_t> param_series;
+    time_series_t density_series;
+    time_series_t viscosity_series;
 
-    input_parameters_t(size_t& count_par)
-        : count_parameters{ count_par }
-    {}
-
-    void input_parameters(vector<vector<double>>& moments, vector<vector<double>>& par)
+    void input_parameters(vector<vector<double>>& par_time, vector<vector<double>>& par)
     {
-        for (size_t index = 0; index < count_parameters; index++)
-        {
-            time_series_t series = build_parameters(moments[index], par[index]);
-            parameters_series.push_back(series);
-        }
-    }
-
-    void input_parameters(vector<vector<vector<double>>>& parameters_moments)
-    {
-        for (size_t index = 0; index < count_parameters; index++)
+        for (size_t index = 0; index < par.size(); index++)
         {
             vector<double> moments;
-            if (parameters_moments[index][TIME_INDEX].size() == 1)
-                moments = build_series(parameters_moments[index][TIME_INDEX][0], parameters_moments[index][PAR_INDEX].size());
+            if (par_time[index].size() == 1)
+                moments = build_series(par_time[index][0], par[index].size());
             else
-                moments = parameters_moments[index][TIME_INDEX];
+                moments = par_time[index];
 
-            time_series_t series = build_parameters(moments, parameters_moments[index][PAR_INDEX]);
-            parameters_series.push_back(series);
+            time_series_t series = build_parameters(moments, par[index]);
+            param_series.push_back(series);
         }
     }
 
-    void input_parameters(double& dt, vector<vector<double>>& par)
+    void input_dens_visc(double& dt, vector<double>& density_vals, vector<double>& visc_vals)
+    {
+        vector<double> moments = build_series(dt, density_vals.size());
+        density_series = build_parameters(moments, density_vals);
+        viscosity_series = build_parameters(moments, visc_vals);
+    }
+
+    void input_parameters(double& dt, vector<vector<double>> par)
     {
         vector<double> moments = build_series(dt, par[0].size());
-        for (size_t index = 0; index < count_parameters; index++)
+        for (size_t index = 0; index < par.size(); index++)
         {
             time_series_t series = build_parameters(moments, par[index]);
-            parameters_series.push_back(series);
+            param_series.push_back(series);
         }
     }
 

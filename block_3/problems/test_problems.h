@@ -14,10 +14,10 @@ typedef profile_collection_t<3> layer_t;
 /// @param dt шаг по времени
 /// @param step текущий шаг моделирования
 /// @param filename название файла для записи
-void write_press_profile_only(vector<double>& press, double& dx, double& dt, size_t step, std::string filename = "output/press_prof.csv") {
+void write_press_profile_only(vector<double>& press, double& dx, double& time_moment, std::string filename = "output/press_prof.csv") {
     std::ofstream press_file;
     size_t profCount = press.size();
-    if (step == 0)
+    if (time_moment == 0)
     {
         press_file.open(filename);
         press_file << "time,x,Давление" << std::endl;
@@ -27,7 +27,7 @@ void write_press_profile_only(vector<double>& press, double& dx, double& dt, siz
 
     for (int i = 0; i < profCount; i++)
     {
-        press_file << dt * step << "," << i * dx;
+        press_file << time_moment << "," << i * dx;
         press_file << "," << press[i] << std::endl;
     }
 
@@ -66,6 +66,27 @@ void write_profiles(
     file.close();
 }
 
+void write_profiles_problem(
+    density_viscosity_layer& layer, double& dx, double& time_moment,
+    std::string filename = "output/profiles_problems.csv")
+{
+    std::ofstream file;
+    if (time_moment == 0)
+    {
+        file.open(filename);
+        file << "time,x,Плотность,Вязкость" << std::endl;
+    }
+    else
+        file.open(filename, std::ios::app);
+    
+    for (int i = 0; i < layer.density.size(); i++)
+    {
+        file << time_moment << "," << i * dx;
+        file << "," << layer.density[i] << "," << layer.viscosity[i] << std::endl;
+    }
+    file.close();
+}
+
 /// @brief Класс для решения задач по квазистационару 
 class Quasistationary : public ::testing::Test
 {
@@ -91,14 +112,12 @@ public:
     /// @param press_prof Ссылка на профиль давления
     /// @param speed Скорость потока
     /// @param direction Направление расчёта давления
-    void euler_solve(layer_t& layer_prev, layer_t& layer_next, double& speed, size_t direction = 1)
+    void euler_solve(density_viscosity_layer& layer, vector<double>& press_prof, double& speed, size_t direction = 1)
     {
         // Профиль плотности, для учёта при рисчёте движения партий 
-        vector<double>& density = layer_next.point_double[0];
+        vector<double>& density = layer.density;
         // Профиль вязкости, для учёта при рисчёте движения партий 
-        vector<double>& viscosity = layer_next.point_double[1];
-        // Перенос значений давления с предыдущего на текущий слой
-        layer_next.point_double[2] = layer_prev.point_double[2];
+        vector<double>& viscosity = layer.density;
 
         // функция производной
         // возвращает значение производной в точке, умноженное на шаг по координате
@@ -115,7 +134,7 @@ public:
                 return dx * diff;
             };
 
-        QP_Euler_solver(layer_next.point_double[2], right_part, direction);
+        QP_Euler_solver(press_prof, right_part, direction);
     }
 
 protected:
@@ -127,10 +146,6 @@ protected:
     size_t T = 1000;
     // Давление в начале участка трубопровода
     double p0 = 6e6;
-    // Плотность вытесняющей партии
-    double rho_in = 800;
-    // Вязкость вытесняющей партии
-    double visc_in = 10e-6;
     // Расход потока
     double flow = 0.5;
 
@@ -193,28 +208,52 @@ TEST_F(Quasistationary, EulerWithMOC)
 
 TEST_F(Quasistationary, Testing)
 {
-    double dt = 0.5;
-
+    double dt_par = 50;
     
     vector<double> rho = { 800, 850, 870, 830, 860, 850 };
     vector<double> visc = { 10e-6, 12e-6, 14e-6, 11e-6, 14e-6, 13e-6 };
+    vector<double> p_l = { 60.5e5, 61e5, 60.5e5, 59.8e5, 59e5, 60e5 };
 
-    vector<double> Q(3, flow);
+    parameters_series_t parameters;
+    parameters.input_dens_visc(dt_par, rho, visc);
+    parameters.input_parameters(dt_par, { p_l });
 
-    vector<vector<double>> parameters_val{ rho, visc };
-    size_t count_input_series = parameters_val.size();
+    vector<double> Q(pipe.profile.getPointCount(), flow);
 
-    input_parameters_t parameters(count_input_series);
+    ring_buffer_t<density_viscosity_layer> buffer(2, pipe.profile.getPointCount());
 
-    parameters.input_parameters(dt, parameters_val);
-
-    transport_moc_solver(pipe, Q, parameters.parameters_series);
+    auto& rho_initial = buffer.previous().density;
+    auto& viscosity_initial = buffer.previous().viscosity;
+    rho_initial = vector<double>(rho_initial.size(), oil.density.nominal_density);
+    viscosity_initial = vector<double>(viscosity_initial.size(), oil.viscosity.nominal_viscosity);
 
     double modeling_time = 0;
+    double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
+    write_profiles_problem(buffer.previous(), dx, modeling_time);
 
-    while (modeling_time <= T)
+    vector<double> press_profile(pipe.profile.getPointCount(), p0);
+    double speed = flow / pipe.wall.getArea();
+    euler_solve(buffer.previous(), press_profile, speed);
+    write_press_profile_only(press_profile, dx, modeling_time);
+    
+    while (modeling_time <= T) 
     {
+        density_viscosity_layer& prev = buffer.previous();
+        density_viscosity_layer& next = buffer.current();
+        transport_moc_solver moc_solv(pipe, Q, prev, next);
+        modeling_time += moc_solv.prepare_step();
+        
+        array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters.density_series, parameters.viscosity_series);
+        moc_solv.step(par_in);
+        write_profiles_problem(next, dx, modeling_time);
+        
+        double p_n = transport_moc_solver::interpolation(modeling_time, parameters.param_series[0]);
+        press_profile[0] = p_n;
+        euler_solve(next, press_profile, speed);
+        write_press_profile_only(press_profile, dx, modeling_time);
 
+        buffer.advance(+1);
+        
     }
 
 }
