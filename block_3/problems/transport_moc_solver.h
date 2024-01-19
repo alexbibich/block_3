@@ -140,11 +140,43 @@ struct parameters_series_t
     time_series_t density_series; 
     time_series_t viscosity_series;
 
+    /// @brief Принимает постоянный для всех параметров шаг и массив параметров для 
+    /// формирования временных рядов
+    /// @param dt постоянный шаг по времени
+    /// @param density_vals Временной ряд плотности
+    /// @param visc_vals Временной ряд вязкости
+    void input_dens_visc(double& dt, vector<double>& density_vals, vector<double>& visc_vals)
+    {
+        vector<double> moments = build_series(dt, density_vals.size());
+        density_series = build_parameters(moments, density_vals);
+        viscosity_series = build_parameters(moments, visc_vals);
+    }
+
+    /// @brief Принимает постоянный для всех параметров шаг и массив параметров для 
+    /// формирования временных рядов
+    /// @param time_moments_density моменты времени для плотности
+    /// @param density_vals значения плотности
+    /// @param time_moments_visc моменты времени для вязкости
+    /// @param visc_vals значения вязкости
+    void input_dens_visc(vector<double> time_moments_density, vector<double>& density_vals, vector<double> time_moments_visc, vector<double>& visc_vals)
+    {
+        vector<double> dens_moments =
+            (time_moments_density.size() == 1)
+            ? build_series(time_moments_density[0], density_vals.size())
+            : time_moments_density;
+        vector<double> visc_moments =
+            (time_moments_visc.size() == 1)
+            ? build_series(time_moments_visc[0], visc_vals.size())
+            : time_moments_density;
+        density_series = build_parameters(dens_moments, density_vals);
+        viscosity_series = build_parameters(visc_moments, visc_vals);
+    }
+
     /// @brief Принимает массив времён и массив параметров для 
     /// формирования временных рядов
     /// @param par_time массивы моментов времён
     /// @param par Временные ряды параметров
-    void input_parameters(vector<vector<double>>& par_time, vector<vector<double>>& par)
+    void input_parameters(vector<vector<double>> par_time, vector<vector<double>> par)
     {
         for (size_t index = 0; index < par.size(); index++)
         {
@@ -157,18 +189,6 @@ struct parameters_series_t
             time_series_t series = build_parameters(moments, par[index]);
             param_series.push_back(series);
         }
-    }
-
-    /// @brief Принимает постоянный для всех параметров шаг и массив параметров для 
-    /// формирования временных рядов
-    /// @param dt постоянный шаг по времени
-    /// @param density_vals Временной ряд плотности
-    /// @param visc_vals Временной ряд вязкости
-    void input_dens_visc(double& dt, vector<double>& density_vals, vector<double>& visc_vals)
-    {
-        vector<double> moments = build_series(dt, density_vals.size());
-        density_series = build_parameters(moments, density_vals);
-        viscosity_series = build_parameters(moments, visc_vals);
     }
 
     /// @brief Принимает постоянный для всех параметров шаг и массив параметров для 

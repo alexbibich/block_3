@@ -149,8 +149,8 @@ TEST_F(Quasistationary, EulerWithMOC_line_inter)
     // Зададим постоянный шаг для всех временных рядов
     double dt_par = 50;
     // Временные ряды для параметров
-    vector<double> rho = { 800, 850, 870, 830, 860, 850 };
-    vector<double> visc = { 10e-6, 12e-6, 14e-6, 11e-6, 14e-6, 13e-6 };
+    vector<double> rho = { 900, 850, 870, 830, 860, 850 };
+    vector<double> visc = { 15e-6, 12e-6, 14e-6, 11e-6, 10e-6, 13e-6 };
     vector<double> p_l = { 60.5e5, 61e5, 60.5e5, 59.8e5, 59e5, 60e5 };
     vector<double> Q = { 0.6, 0.7, 0.65, 0.58, 0.52, 0.47 };
     // Создадим сущность, хранящую временные ряды
