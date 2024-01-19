@@ -71,10 +71,10 @@ public:
     /// @param density краевое условие плотности
     /// @param viscosity краевое условие вязкости
     /// @return массив краевых условий
-    array<double, 2> get_par_in(double& time_moment, time_series_t& density, time_series_t& viscosity)
+    array<double, 2> get_par_in(double& time_moment, time_series_t& density, time_series_t& viscosity, std::string method = "line")
     {
-        double rho_in = interpolation(time_moment, density);
-        double visc_in = interpolation(time_moment, viscosity);
+        double rho_in = interpolation(time_moment, density, method);
+        double visc_in = interpolation(time_moment, viscosity, method);
 
         return { rho_in, visc_in };
     }
@@ -83,11 +83,12 @@ public:
     /// @param time_moment текущий момент времени моделирования
     /// @param parameter Временной ряд параметра
     /// @return значение параметра в момент времени
-    static double interpolation(double& time_moment, const time_series_t& parameter)
+    static double interpolation(double& time_moment, const time_series_t& parameter, std::string method = "line")
     {
         size_t left_index = 0;
         size_t right_index = parameter.size()-1;
         size_t center_index = right_index / 2;
+        double res_par;
 
         if (parameter[left_index][TIME_INDEX] <= time_moment)
         {
@@ -106,10 +107,16 @@ public:
 
             center_index = (right_index + left_index) / 2;
         }
-        double dt = parameter[right_index][TIME_INDEX] - parameter[left_index][TIME_INDEX];
-        double u1 = (parameter[right_index][TIME_INDEX] - time_moment) / dt;
-        double u2 = (time_moment - parameter[left_index][TIME_INDEX]) / dt;
-        double res_par = parameter[left_index][PAR_INDEX] * u1 + parameter[right_index][PAR_INDEX] * u2;
+
+        if (method == "line")
+        {
+            double dt = parameter[right_index][TIME_INDEX] - parameter[left_index][TIME_INDEX];
+            double u1 = (parameter[right_index][TIME_INDEX] - time_moment) / dt;
+            double u2 = (time_moment - parameter[left_index][TIME_INDEX]) / dt;
+            res_par = parameter[left_index][PAR_INDEX] * u1 + parameter[right_index][PAR_INDEX] * u2;
+        }
+        else
+            res_par = parameter[left_index][PAR_INDEX];
 
         return res_par;
     }
