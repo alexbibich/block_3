@@ -153,7 +153,7 @@ TEST_F(Quasistationary, EulerWithMOC_line_inter)
     vector<double> visc = { 10e-6, 12e-6, 14e-6, 11e-6, 14e-6, 13e-6 };
     vector<double> p_l = { 60.5e5, 61e5, 60.5e5, 59.8e5, 59e5, 60e5 };
     vector<double> Q = { 0.6, 0.7, 0.65, 0.58, 0.52, 0.47 };
-    // Создадим сущностьЮ хранящую временные ряды
+    // Создадим сущность, хранящую временные ряды
     parameters_series_t parameters;
     parameters.input_dens_visc(dt_par, rho, visc);
     parameters.input_parameters(dt_par, { p_l, Q });
@@ -172,7 +172,7 @@ TEST_F(Quasistationary, EulerWithMOC_line_inter)
     // Получаем начальный профиль давления в трубе
     // Возможно стоит включить профиль давления в проблемно-ориентированный слой
     vector<double> press_profile(pipe.profile.getPointCount(), p0);
-    double speed = flow / pipe.wall.getArea();
+    double speed = parameters.param_series[1][0][PAR_INDEX] / pipe.wall.getArea();
     euler_solve(buffer.previous(), press_profile, speed);
     
     // Создаём вектор изменения давлений относитльно начального профиля
