@@ -34,37 +34,6 @@ void write_press_profile_only(vector<double>& press, double& dx, double& time_mo
     press_file.close();
 };
 
-/// @brief Функция для записи профилей всех параметров
-/// в разные моменты времени
-/// @param layer ссылка на слой 
-/// @param press_prof ссылка на профиль давления
-/// @param dx шаг по координате
-/// @param dt шаг по времени
-/// @param step текщий шаг моделирования
-/// @param filename название файла для записи
-void write_profiles(
-    layer_t& layer, double& dx, double& dt, size_t step,
-    std::string filename = "output/profiles.csv")
-{
-    std::ofstream file;
-    std::ofstream press_file;
-    size_t profCount = layer.point_double[0].size();
-    if (step == 0)
-    {
-        file.open(filename);
-        file << "time,x,Плотность,Вязкость,Давление" << std::endl;
-    }
-    else
-        file.open(filename, std::ios::app);
-        press_file.open(filename, std::ios::app);
-    
-    for (int i = 0; i < profCount; i++)
-    {
-        file << dt * step << "," << i * dx;
-        file << "," << layer.point_double[0][i] << "," << layer.point_double[1][i] << "," << layer.point_double[2][i] << std::endl;
-    }
-    file.close();
-}
 
 void write_profiles_problem(
     density_viscosity_layer& layer, double& dx, double& time_moment,
@@ -208,20 +177,23 @@ TEST_F(Quasistationary, EulerWithMOC)
 
 TEST_F(Quasistationary, Testing)
 {
+    // Зададим постоянный шаг для всех временных рядов
     double dt_par = 50;
-    
+    // Временные ряды для параметров
     vector<double> rho = { 800, 850, 870, 830, 860, 850 };
     vector<double> visc = { 10e-6, 12e-6, 14e-6, 11e-6, 14e-6, 13e-6 };
     vector<double> p_l = { 60.5e5, 61e5, 60.5e5, 59.8e5, 59e5, 60e5 };
-
+    // Создадим сущностьЮ хранящую временные ряды
     parameters_series_t parameters;
     parameters.input_dens_visc(dt_par, rho, visc);
     parameters.input_parameters(dt_par, { p_l });
 
+    // Вектор скорости потока по координате
     vector<double> Q(pipe.profile.getPointCount(), flow);
 
+    // Буффер с проблемно-ориентированными слоями
     ring_buffer_t<density_viscosity_layer> buffer(2, pipe.profile.getPointCount());
-
+    // Инициализация начальной плотности и вязкости в трубе
     auto& rho_initial = buffer.previous().density;
     auto& viscosity_initial = buffer.previous().viscosity;
     rho_initial = vector<double>(rho_initial.size(), oil.density.nominal_density);
@@ -229,28 +201,47 @@ TEST_F(Quasistationary, Testing)
 
     double modeling_time = 0;
     double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
-    write_profiles_problem(buffer.previous(), dx, modeling_time);
-
+    
+    // Получаем начальный профиль давления в трубе
+    // Возможно стоит включить профиль давления в проблемно-ориентированный слой
     vector<double> press_profile(pipe.profile.getPointCount(), p0);
     double speed = flow / pipe.wall.getArea();
     euler_solve(buffer.previous(), press_profile, speed);
-    write_press_profile_only(press_profile, dx, modeling_time);
     
+    // Создаём вектор изменения давлений относитльно начального профиля
+    vector<double> diff_prof(press_profile.size(), 0);
+    vector<double> initial_press_profile = press_profile;
+
+    // Вывод в файлы начального состояния трубопровода
+    write_profiles_problem(buffer.previous(), dx, modeling_time);
+    write_press_profile_only(press_profile, dx, modeling_time);
+    write_press_profile_only(diff_prof, dx, modeling_time, "output/diff_press_profile.csv");
+
     while (modeling_time <= T) 
     {
+
         density_viscosity_layer& prev = buffer.previous();
         density_viscosity_layer& next = buffer.current();
+
         transport_moc_solver moc_solv(pipe, Q, prev, next);
-        modeling_time += moc_solv.prepare_step();
-        
+        modeling_time += moc_solv.prepare_step(); // получвем шаг dt для Cr = 1
+        // Создаём массив краевых условий для метода характеристик
         array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters.density_series, parameters.viscosity_series);
         moc_solv.step(par_in);
-        write_profiles_problem(next, dx, modeling_time);
         
+        // Решение задачи QP методом Эйлера
         double p_n = transport_moc_solver::interpolation(modeling_time, parameters.param_series[0]);
         press_profile[0] = p_n;
         euler_solve(next, press_profile, speed);
+        
+        // получение вектора изменения давлений относитльно начального профиля
+        std::transform(initial_press_profile.begin(), initial_press_profile.end(), press_profile.begin(), diff_prof.begin(), 
+            [](double initial, double current) {return initial - current; });
+
+        // Вывод в файлы
+        write_profiles_problem(next, dx, modeling_time);
         write_press_profile_only(press_profile, dx, modeling_time);
+        write_press_profile_only(diff_prof, dx, modeling_time, "output/diff_press_profile.csv");
 
         buffer.advance(+1);
         

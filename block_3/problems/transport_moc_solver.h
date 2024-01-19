@@ -6,9 +6,8 @@
 #include<testing/test_moc.h>
 
 typedef vector < array<double, 2> > time_series_t;
-/// @brief тип данных для хранения слоёв
-typedef profile_collection_t<3> layer_t;
 
+/// @brief Солвер для метода характеристик
 class transport_moc_solver
 {
 public:
@@ -22,10 +21,7 @@ public:
     {}
 
     /// @brief Алгоритм расчёта методом характеристик
-    /// @param prev Ссылка на предыдущий профиль
-    /// @param next Ссылка на текущий профиль
-    /// @param par_in Параметр вытесняющей партии
-    /// @param direction Направление течения потока
+    /// @param par_in массив краевых условий вида {rho_n, visc_n}
     void step(array<double, 2> par_in)
     {
         int direction = getEigenvals(0) > 0 ? 1 : -1;
@@ -39,7 +35,7 @@ public:
             next.viscosity[index] = prev.viscosity[index - direction];
         }
     }
-
+    
     vector<double> getGrid()
     {
         return pipe.profile.coordinates;
@@ -51,6 +47,8 @@ public:
         return Q[index] / S;
     }
 
+    /// @brief Расчёт шага для Cr = 1
+    /// @return шаг по времени
     double prepare_step()
     {
         vector<double> grid = getGrid();
@@ -68,6 +66,11 @@ public:
         return courant_step;
     }
 
+    /// @brief Формирует массив краевых условий для плотности и вязкости
+    /// @param time_moment текущий момент времени моделирования
+    /// @param density краевое условие плотности
+    /// @param viscosity краевое условие вязкости
+    /// @return массив краевых условий
     array<double, 2> get_par_in(double& time_moment, time_series_t& density, time_series_t& viscosity)
     {
         double rho_in = interpolation(time_moment, density);
@@ -76,6 +79,10 @@ public:
         return { rho_in, visc_in };
     }
 
+    /// @brief Линейная интерполяция 
+    /// @param time_moment текущий момент времени моделирования
+    /// @param parameter Временной ряд параметра
+    /// @return значение параметра в момент времени
     static double interpolation(double& time_moment, const time_series_t& parameter)
     {
         size_t left_index = 0;
@@ -117,13 +124,19 @@ protected:
     density_viscosity_layer& next;
 };
 
-
+/// @brief Сущность для формирования
+/// и хранения временных рядов параметров
 struct parameters_series_t
 {
     vector<time_series_t> param_series;
-    time_series_t density_series;
+    // проблемно-ориентированные временные ряды для плотности и вязкости
+    time_series_t density_series; 
     time_series_t viscosity_series;
 
+    /// @brief Принимает массив времён и массив параметров для 
+    /// формирования временных рядов
+    /// @param par_time массивы моментов времён
+    /// @param par Временные ряды параметров
     void input_parameters(vector<vector<double>>& par_time, vector<vector<double>>& par)
     {
         for (size_t index = 0; index < par.size(); index++)
@@ -139,6 +152,11 @@ struct parameters_series_t
         }
     }
 
+    /// @brief Принимает постоянный для всех параметров шаг и массив параметров для 
+    /// формирования временных рядов
+    /// @param dt постоянный шаг по времени
+    /// @param density_vals Временной ряд плотности
+    /// @param visc_vals Временной ряд вязкости
     void input_dens_visc(double& dt, vector<double>& density_vals, vector<double>& visc_vals)
     {
         vector<double> moments = build_series(dt, density_vals.size());
@@ -146,6 +164,10 @@ struct parameters_series_t
         viscosity_series = build_parameters(moments, visc_vals);
     }
 
+    /// @brief Принимает постоянный для всех параметров шаг и массив параметров для 
+    /// формирования временных рядов
+    /// @param dt постоянный шаг по времени
+    /// @param par Временные ряды параметров
     void input_parameters(double& dt, vector<vector<double>> par)
     {
         vector<double> moments = build_series(dt, par[0].size());
@@ -156,6 +178,11 @@ struct parameters_series_t
         }
     }
 
+    /// @brief Формирует вектор временног ряда, в котором каждая точка содержит
+    /// момент времени и значение параметра в этот момент времени
+    /// @param moments Вектор моментов времени параметра
+    /// @param parameter Вектор значений параметра
+    /// @return временной ряд параметра
     time_series_t build_parameters(vector<double>& moments, vector<double>& parameter)
     {
         time_series_t par(parameter.size());
@@ -168,6 +195,10 @@ struct parameters_series_t
         return par;
     }
 
+    /// @brief Из постоянного шага строит вектор моментов времени
+    /// @param dt постоянный шаг
+    /// @param length длина Временного ряда
+    /// @return вектора моментов времени
     vector<double> build_series(double& dt, size_t length)
     {
         vector<double> time_ser(length);
@@ -175,7 +206,4 @@ struct parameters_series_t
             time_ser[index] = dt * index;
         return time_ser;
     }
-
-    
-  
 };
