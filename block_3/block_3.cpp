@@ -13,6 +13,7 @@
 
 #include "problems/test_problems.h"
 #include "problems/transport_moc_solver.h"
+#include "problems/newton_solver.h"
 
 
 inline std::string get_test_string() {

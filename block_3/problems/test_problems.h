@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "transport_moc_solver.h"
+#include "newton_solver.h"
 
 /// @brief тип данных для лямбды-функции в методе эйлера
 typedef std::function<double(size_t& index)> diff_function_t;
@@ -32,6 +33,31 @@ void write_press_profile_only(vector<double>& press, double& dx, double& time_mo
     }
 
     press_file.close();
+};
+
+void uni_write(double& dx, double& time_moment, vector<vector<double>> params, std::string params_name, std::string filename = "output/all_prof.csv") {
+    std::ofstream output_file;
+    size_t profCount = params.size();
+    if (time_moment == 0)
+    {
+        output_file.open(filename);
+        output_file << params_name << std::endl;
+    }
+    else
+        output_file.open(filename, std::ios::app);
+
+    for (int i = 0; i < params[0].size(); i++)
+    {
+        output_file << time_moment << "," << i * dx;
+        for (int index = 0; index < profCount; index++)
+        {
+            output_file << params[index][i];
+            if (index == (profCount - 1))
+                output_file << std::endl;
+        }
+    }
+
+    output_file.close();
 };
 
 
@@ -81,12 +107,12 @@ public:
     /// @param press_prof Ссылка на профиль давления
     /// @param speed Скорость потока
     /// @param direction Направление расчёта давления
-    void euler_solve(density_viscosity_layer& layer, vector<double>& press_prof, double& speed, size_t direction = 1)
+    void euler_solve(const density_viscosity_layer& layer, vector<double>& press_prof, double speed, size_t direction = 1)
     {
         // Профиль плотности, для учёта при рисчёте движения партий 
-        vector<double>& density = layer.density;
+        const vector<double>& density = layer.density;
         // Профиль вязкости, для учёта при рисчёте движения партий 
-        vector<double>& viscosity = layer.density;
+        const vector<double>& viscosity = layer.density;
 
         // функция производной
         // возвращает значение производной в точке, умноженное на шаг по координате
@@ -105,6 +131,30 @@ public:
 
         QP_Euler_solver(press_prof, right_part, direction);
     }
+
+    /// @brief Решает задачу PP методом Ньютона поверх Эйлера
+    /// @return Возвращает расход 
+    double solve_newton_euler(const density_viscosity_layer& layer, double& p_n, double& p_L)
+    {
+        residual_func_t res_fun =
+            [this, layer, p_n, p_L](const double& v)
+            {
+                // Количество точек профиля
+                size_t dots_count = pipe.profile.getPointCount();
+                // Профиль давлений
+                vector<double> press_profile(dots_count, p_n);
+                // Решение задачи QP методом Эйлера
+                euler_solve(layer, press_profile, v);
+                // Функция невязок
+                return press_profile.back() - p_L;
+            };
+
+        solver_Newton Newton_solver(res_fun);
+        double Q = Newton_solver.solve() * M_PI * pow(pipe.wall.diameter, 2) / 4;
+
+        return Q;
+    }
+
 
 protected:
     /// @brief Параметры трубы
@@ -195,7 +245,7 @@ TEST_F(Quasistationary, EulerWithMOC_line_inter)
         vector<double> Q(pipe.profile.getPointCount(), Q_n);
 
         transport_moc_solver moc_solv(pipe, Q, prev, next);
-        modeling_time += moc_solv.prepare_step(); // получвем шаг dt для Cr = 1
+        modeling_time += moc_solv.prepare_step(); // получим шаг dt для Cr = 1
         // Создаём массив краевых условий для метода характеристик
         array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters.density_series, parameters.viscosity_series);
         moc_solv.step(par_in);
@@ -271,7 +321,7 @@ TEST_F(Quasistationary, EulerWithMOC_step_inter)
         vector<double> Q(pipe.profile.getPointCount(), Q_n);
 
         transport_moc_solver moc_solv(pipe, Q, prev, next);
-        modeling_time += moc_solv.prepare_step(); // получвем шаг dt для Cr = 1
+        modeling_time += moc_solv.prepare_step(); // получим шаг dt для Cr = 1
         // Создаём массив краевых условий для метода характеристик
         array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters.density_series, parameters.viscosity_series, "step");
         moc_solv.step(par_in);
@@ -289,6 +339,59 @@ TEST_F(Quasistationary, EulerWithMOC_step_inter)
         write_profiles_problem(next, dx, modeling_time);
         write_press_profile_only(press_profile, dx, modeling_time);
         write_press_profile_only(diff_prof, dx, modeling_time, "output/diff_press_profile.csv");
+
+        buffer.advance(+1);
+
+    }
+
+}
+
+TEST_F(Quasistationary, NewtonWithMOC_step_inter)
+{
+    // Зададим постоянный шаг для всех временных рядов
+    double dt_par = 50;
+    // Временные ряды для параметров
+    vector<double> rho = { 800, 850, 870, 830, 860, 850 };
+    vector<double> visc = { 10e-6, 12e-6, 14e-6, 11e-6, 14e-6, 13e-6 };
+    vector<double> p_n = { 60.5e5, 61e5, 60.5e5, 59.8e5, 59e5, 60e5 };
+    vector<double> p_L = { 52.5e5, 54.6e5, 53.5e5, 55.8e5, 54e5, 52e5 };
+
+    // Создадим сущность, хранящую временные ряды
+    parameters_series_t parameters;
+    parameters.input_dens_visc(dt_par, rho, visc);
+    parameters.input_parameters(dt_par, { p_n, p_L });
+
+    // Буффер с проблемно-ориентированными слоями
+    ring_buffer_t<density_viscosity_layer> buffer(2, pipe.profile.getPointCount());
+    // Инициализация начальной плотности и вязкости в трубе
+    auto& rho_initial = buffer.previous().density;
+    auto& viscosity_initial = buffer.previous().viscosity;
+    rho_initial = vector<double>(rho_initial.size(), oil.density.nominal_density);
+    viscosity_initial = vector<double>(viscosity_initial.size(), oil.viscosity.nominal_viscosity);
+
+    double modeling_time = 0;
+    double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
+    double pn = transport_moc_solver::interpolation(modeling_time, parameters.param_series[0]);
+    double pL = transport_moc_solver::interpolation(modeling_time, parameters.param_series[1]);
+    vector<double> Q_new = vector<double>(solve_newton_euler(buffer.previous(), pn, pL));
+
+    while (modeling_time <= T)
+    {
+
+        density_viscosity_layer& prev = buffer.previous();
+        density_viscosity_layer& next = buffer.current();
+
+
+        transport_moc_solver moc_solv(pipe, Q_new, prev, next);
+        modeling_time += moc_solv.prepare_step(); // получим шаг dt для Cr = 1
+        // Создаём массив краевых условий для метода характеристик
+        array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters.density_series, parameters.viscosity_series, "step");
+        moc_solv.step(par_in);
+
+        pn = transport_moc_solver::interpolation(modeling_time, parameters.param_series[0]);
+        pL = transport_moc_solver::interpolation(modeling_time, parameters.param_series[1]);
+
+        Q_new = vector<double>(solve_newton_euler(next, pn, pL));
 
         buffer.advance(+1);
 
