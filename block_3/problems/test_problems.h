@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+//--gtest_catch_exceptions=0 --gtest_filter=Quasistationary.EulerWithMOC_step_inter
+
 #include "transport_moc_solver.h"
 #include "newton_solver.h"
 
