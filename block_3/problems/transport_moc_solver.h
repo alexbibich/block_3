@@ -71,7 +71,7 @@ public:
     /// @param density краевое условие плотности
     /// @param viscosity краевое условие вязкости
     /// @return массив краевых условий
-    array<double, 2> get_par_in(double& time_moment, time_series_t& density, time_series_t& viscosity, std::string method = "line")
+    array<double, 2> get_par_in(double time_moment, time_series_t& density, time_series_t& viscosity, std::string method = "line")
     {
         double rho_in = interpolation(time_moment, density, method);
         double visc_in = interpolation(time_moment, viscosity, method);
@@ -83,7 +83,7 @@ public:
     /// @param time_moment текущий момент времени моделирования
     /// @param parameter Временной ряд параметра
     /// @return значение параметра в момент времени
-    static double interpolation(double& time_moment, const time_series_t& parameter, std::string method = "line")
+    static double interpolation(double time_moment, const time_series_t& parameter, std::string method = "line")
     {
         size_t left_index = 0;
         size_t right_index = parameter.size()-1;

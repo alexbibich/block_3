@@ -29,5 +29,8 @@
     <ClInclude Include="problems\newton_solver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="problems\euler_solver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -132,6 +132,7 @@
     <ClCompile Include="block_3.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="problems\euler_solver.h" />
     <ClInclude Include="problems\newton_solver.h" />
     <ClInclude Include="problems\test_problems.h" />
     <ClInclude Include="problems\transport_moc_solver.h" />
