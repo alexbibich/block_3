@@ -7,137 +7,58 @@
 
 typedef vector < array<double, 2> > time_series_t;
 
-/// @brief Солвер для метода характеристик
-class transport_moc_solver
-{
-public:
-
-    transport_moc_solver(const pipe_properties_t& pipe,
-        const vector<double>& vol_flow,
-        density_viscosity_layer& prev, density_viscosity_layer& next)
-        : pipe(pipe),
-        Q(vol_flow),
-        prev{ prev }, next{ next }
-    {}
-
-    /// @brief Алгоритм расчёта методом характеристик
-    /// @param par_in массив краевых условий вида {rho_n, visc_n}
-    void step(array<double, 2> par_in)
-    {
-        int direction = getEigenvals(0) > 0 ? 1 : -1;
-        size_t start_index = direction > 0 ? 1 : (prev.density.size()) - 2;
-        size_t end_index = direction < 0 ? 0 : (prev.density.size());
-        next.density[start_index - direction] = par_in[0];
-        next.viscosity[start_index - direction] = par_in[1];
-        for (size_t index = start_index; index != end_index; index += direction)
-        {
-            next.density[index] = prev.density[index - direction];
-            next.viscosity[index] = prev.viscosity[index - direction];
-        }
-    }
-    
-    vector<double> getGrid()
-    {
-        return pipe.profile.coordinates;
-    }
-
-    double getEigenvals(size_t index)
-    {
-        double S = pipe.wall.getArea();
-        return Q[index] / S;
-    }
-
-    /// @brief Расчёт шага для Cr = 1
-    /// @return шаг по времени
-    double prepare_step()
-    {
-        vector<double> grid = getGrid();
-        double max_eigen = 0;
-
-        for (size_t index = 0; index < grid.size(); index++)
-        {
-            double eigen_index = getEigenvals(index);
-            max_eigen = std::max(max_eigen, eigen_index);
-        }
-
-        double dx = grid[1] - grid[0];
-        double courant_step = dx / max_eigen;
-
-        return courant_step;
-    }
-
-    /// @brief Формирует массив краевых условий для плотности и вязкости
-    /// @param time_moment текущий момент времени моделирования
-    /// @param density краевое условие плотности
-    /// @param viscosity краевое условие вязкости
-    /// @return массив краевых условий
-    array<double, 2> get_par_in(double time_moment, time_series_t& density, time_series_t& viscosity, std::string method = "line")
-    {
-        double rho_in = interpolation(time_moment, density, method);
-        double visc_in = interpolation(time_moment, viscosity, method);
-
-        return { rho_in, visc_in };
-    }
-
     /// @brief Линейная интерполяция 
     /// @param time_moment текущий момент времени моделирования
     /// @param parameter Временной ряд параметра
     /// @return значение параметра в момент времени
-    static double interpolation(double time_moment, const time_series_t& parameter, std::string method = "line")
+double interpolation(double time_moment, const time_series_t& parameter, size_t& left_index, std::string method = "line")
+{
+    size_t right_index = parameter.size() - 1;
+    size_t center_index = (right_index + left_index) / 2;
+    double res_par;
+
+    if (parameter[left_index][TIME_INDEX] <= time_moment)
     {
-        size_t left_index = 0;
-        size_t right_index = parameter.size()-1;
-        size_t center_index = right_index / 2;
-        double res_par;
+        if (parameter[right_index][TIME_INDEX] <= time_moment)
+            return parameter[right_index][PAR_INDEX];
+    }
+    else
+        return parameter[left_index][PAR_INDEX];
 
-        if (parameter[left_index][TIME_INDEX] <= time_moment)
-        {
-            if (parameter[right_index][TIME_INDEX] <= time_moment)
-                return parameter[right_index][PAR_INDEX];
-        }
+    while (left_index != center_index)
+    {
+        if (parameter[center_index][TIME_INDEX] >= time_moment)
+            right_index = center_index;
         else
-            return parameter[left_index][PAR_INDEX];
+            left_index = center_index;
 
-        while (left_index != center_index)
-        {
-            if (parameter[center_index][TIME_INDEX] >= time_moment)
-                right_index = center_index;
-            else
-                left_index = center_index;
-
-            center_index = (right_index + left_index) / 2;
-        }
-
-        if (method == "line")
-        {
-            double dt = parameter[right_index][TIME_INDEX] - parameter[left_index][TIME_INDEX];
-            double u1 = (parameter[right_index][TIME_INDEX] - time_moment) / dt;
-            double u2 = (time_moment - parameter[left_index][TIME_INDEX]) / dt;
-            res_par = parameter[left_index][PAR_INDEX] * u1 + parameter[right_index][PAR_INDEX] * u2;
-        }
-        else
-            res_par = parameter[left_index][PAR_INDEX];
-
-        return res_par;
+        center_index = (right_index + left_index) / 2;
     }
 
-protected:
-    /// @brief модель трубы
-    const pipe_properties_t& pipe;
-    /// @brief Объемный расход
-    const vector<double>& Q;
-    /// @brief Проблемно-ориентированные слои
-    density_viscosity_layer& prev;
-    density_viscosity_layer& next;
-};
+    if (method == "line")
+    {
+        double dt = parameter[right_index][TIME_INDEX] - parameter[left_index][TIME_INDEX];
+        double u1 = (parameter[right_index][TIME_INDEX] - time_moment) / dt;
+        double u2 = (time_moment - parameter[left_index][TIME_INDEX]) / dt;
+        res_par = parameter[left_index][PAR_INDEX] * u1 + parameter[right_index][PAR_INDEX] * u2;
+    }
+    else
+        res_par = parameter[left_index][PAR_INDEX];
+
+    return res_par;
+}
 
 /// @brief Сущность для формирования
 /// и хранения временных рядов параметров
 struct parameters_series_t
 {
+
+    size_t density_left_index = 0;
+    size_t viscosity_left_index = 0;
+    vector<size_t> params_left_index;
     vector<time_series_t> param_series;
     // проблемно-ориентированные временные ряды для плотности и вязкости
-    time_series_t density_series; 
+    time_series_t density_series;
     time_series_t viscosity_series;
 
     /// @brief Принимает постоянный для всех параметров шаг и массив параметров для 
@@ -188,6 +109,7 @@ struct parameters_series_t
 
             time_series_t series = build_parameters(moments, par[index]);
             param_series.push_back(series);
+            params_left_index.push_back(0);
         }
     }
 
@@ -202,6 +124,7 @@ struct parameters_series_t
         {
             time_series_t series = build_parameters(moments, par[index]);
             param_series.push_back(series);
+            params_left_index.push_back(0);
         }
     }
 
@@ -234,3 +157,87 @@ struct parameters_series_t
         return time_ser;
     }
 };
+
+/// @brief Солвер для метода характеристик
+class transport_moc_solver
+{
+public:
+
+    transport_moc_solver(const pipe_properties_t& pipe,
+        const vector<double>& vol_flow,
+        density_viscosity_layer& prev, density_viscosity_layer& next)
+        : pipe(pipe),
+        Q(vol_flow),
+        prev{ prev }, next{ next }
+    {}
+
+    /// @brief Алгоритм расчёта методом характеристик
+    /// @param par_in массив краевых условий вида {rho_n, visc_n}
+    void step(array<double, 2> par_in)
+    {
+        int direction = getEigenvals(0) > 0 ? 1 : -1;
+        size_t start_index = direction > 0 ? 1 : (prev.density.size()) - 2;
+        size_t end_index = direction < 0 ? 0 : (prev.density.size());
+        next.density[start_index - direction] = par_in[0];
+        next.viscosity[start_index - direction] = par_in[1];
+        for (size_t index = start_index; index != end_index; index += direction)
+        {
+            next.density[index] = prev.density[index - direction];
+            next.viscosity[index] = prev.viscosity[index - direction];
+        }
+    }
+    
+    vector<double> getGrid()
+    {
+        return pipe.profile.coordinates;
+    }
+
+    double getEigenvals(size_t index)
+    {
+        double S = pipe.wall.getArea();
+        return Q[index] / S;
+    }
+
+    /// @brief Расчёт шага для Cr = 1
+    /// @return шаг по времени
+    double prepare_step()
+    {
+        vector<double> grid = getGrid();
+        /*double max_eigen = 0;
+
+        for (size_t index = 0; index < grid.size(); index++)
+        {
+            double eigen_index = getEigenvals(index);
+            max_eigen = std::max(max_eigen, eigen_index);
+        }*/
+
+        double max_eigen = getEigenvals(0);
+        double dx = grid[1] - grid[0];
+        double courant_step = dx / max_eigen;
+
+        return courant_step;
+    }
+
+    /// @brief Формирует массив краевых условий для плотности и вязкости
+    /// @param time_moment текущий момент времени моделирования
+    /// @param density краевое условие плотности
+    /// @param viscosity краевое условие вязкости
+    /// @return массив краевых условий
+    array<double, 2> get_par_in(double time_moment, parameters_series_t& params, std::string method = "line")
+    {
+        double rho_in = interpolation(time_moment, params.density_series, params.density_left_index, method);
+        double visc_in = interpolation(time_moment, params.viscosity_series, params.viscosity_left_index, method);
+
+        return { rho_in, visc_in };
+    }
+
+protected:
+    /// @brief модель трубы
+    const pipe_properties_t& pipe;
+    /// @brief Объемный расход
+    const vector<double>& Q;
+    /// @brief Проблемно-ориентированные слои
+    density_viscosity_layer& prev;
+    density_viscosity_layer& next;
+};
+

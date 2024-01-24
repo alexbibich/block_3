@@ -11,7 +11,6 @@ protected:
     vector<double>& density;
     vector<double>& viscosity;
     pipe_properties_t& pipe;
-    oil_parameters_t& oil;
     double flow;
 
 public:
@@ -19,10 +18,9 @@ public:
     /// @param pipe Ссылка на сущность трубы
     /// @param oil Ссылка на сущность нефти
     /// @param flow Объемный расход
-    Pipe_model_for_PQ_t(pipe_properties_t& pipe, oil_parameters_t& oil, 
+    Pipe_model_for_PQ_t(pipe_properties_t& pipe, 
         vector<double>& density, vector<double>& viscosity, double flow)
         : pipe(pipe)
-        , oil(oil)
         , viscosity(viscosity)
         , density(density)
         , flow(flow)
