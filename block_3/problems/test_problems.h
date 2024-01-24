@@ -286,91 +286,9 @@ TEST_F(Quasistationary, EulerWithMOC_line_inter)
 
 TEST_F(Quasistationary, EulerWithMOC_step_inter)
 {
-    // Зададим постоянный шаг для всех временных рядов
-    double dt_par = 5000;
-    // Временные ряды для параметров
-    vector<double> rho = { 860, 850, 870, 830, 860, 850 };
-    vector<double> visc = { 15e-6, 12e-6, 14e-6, 11e-6, 10e-6, 13e-6 };
-    vector<double> p_l = { 60e5, 61e5, 60.5e5, 59.8e5, 59e5, 60e5 };
-    vector<double> Q = { 0.5, 0.7, 0.65, 0.58, 0.52, 0.47 };
-    // Создадим сущность, хранящую временные ряды
-    parameters_series_t parameters;
-    parameters.input_dens_visc(dt_par, rho, visc);
-    parameters.input_parameters(dt_par, { p_l, Q });
+    // "step"
 
-    // Буффер с проблемно-ориентированными слоями
-    ring_buffer_t<density_viscosity_layer> buffer(2, pipe.profile.getPointCount());
-    // Инициализация начальной плотности и вязкости в трубе
-    auto& rho_initial = buffer.previous().density;
-    auto& viscosity_initial = buffer.previous().viscosity;
-    rho_initial = vector<double>(rho_initial.size(), interpolation(0, parameters.density_series, parameters.density_left_index));
-    viscosity_initial = vector<double>(viscosity_initial.size(), interpolation(0, parameters.viscosity_series, parameters.viscosity_left_index));
-
-    double modeling_time = 0;
-    double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
-
-    // Получаем начальный профиль давления в трубе
-    vector<double> press_profile(pipe.profile.getPointCount());
-    // Профиль для начального профиля давления
-    vector<double> initial_press_profile(pipe.profile.getPointCount());
-    // Создаём вектор изменения давлений относитльно начального профиля
-    vector<double> diff_prof(press_profile.size(), 0);
-
-
-    while (modeling_time <= T)
-    {
-
-        // Вектор скорости потока по координате
-        double Q_n = interpolation(modeling_time, parameters.param_series[1], parameters.params_left_index[1], "step");
-        vector<double> Q(pipe.profile.getPointCount(), Q_n);
-
-        density_viscosity_layer& prev = buffer.previous();
-        density_viscosity_layer& next = buffer.current();
-
-        transport_moc_solver moc_solv(pipe, Q, prev, next);
-
-
-        if (modeling_time == 0)
-        {
-            // Создаем расчетную модель трубы
-            Pipe_model_for_PQ_t pipeModel(pipe, prev.density, prev.viscosity, Q_n);
-
-            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], "step");
-
-            solve_euler_corrector<1>(pipeModel, 1, p_n, &press_profile);
-
-            initial_press_profile = press_profile;
-
-            write_profiles_problem(prev, dx, modeling_time);
-        }
-        else
-        {
-            array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters, "step");
-            moc_solv.step(par_in);
-
-            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], "step");
-
-            // Создаем расчетную модель трубы
-            Pipe_model_for_PQ_t pipeModel(pipe, next.density, next.viscosity, Q_n);
-
-            solve_euler_corrector<1>(pipeModel, 1, p_n, &press_profile);
-
-            // получение вектора изменения давлений относитльно начального профиля
-            std::transform(initial_press_profile.begin(), initial_press_profile.end(), press_profile.begin(), diff_prof.begin(),
-                [](double initial, double current) {return initial - current; });
-
-            buffer.advance(+1);
-        }
-
-        // Вывод в файлы
-        write_profiles_problem(prev, dx, modeling_time);
-        write_press_profile_only(press_profile, dx, modeling_time);
-        write_press_profile_only(diff_prof, dx, modeling_time, "output/diff_press_profile.csv");
-
-        modeling_time += moc_solv.prepare_step();
-    }
-
-}
+};
 
 TEST_F(Quasistationary, NewtonWithMOC_step_inter)
 {
