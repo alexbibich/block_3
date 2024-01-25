@@ -48,6 +48,8 @@ vector<vector<double>> pars_coord_heights(std::string filename = "coord_heights.
         coords.push_back(stod(coord));
         heights.push_back(stod(height));
     }
+
+    return { coords, heights };
 }
 
 // Начало моделирования - 01.08.2021 00:00:00
