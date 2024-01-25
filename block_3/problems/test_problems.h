@@ -8,8 +8,78 @@
 
 /// @brief тип данных для лямбды-функции в методе эйлера
 typedef std::function<double(size_t& index)> diff_function_t;
-/// @brief тип данных для хранения слоёв
-typedef profile_collection_t<3> layer_t;
+
+double pars_time_line(std::string data)
+{
+    std::string ds{ data };
+    std::tm tm{};
+    std::istringstream iss(ds);
+    iss >> std::get_time(&tm, "%d.%m.%Y %H:%M:%S"); // второй аргумент это маска
+    if (iss.fail())
+        std::cerr << "Parse failed\n";
+    else
+    {
+        int day = tm.tm_mday;
+        int minutes = tm.tm_min;
+        int hours = tm.tm_hour;
+        int seconds = tm.tm_sec;
+        
+        return seconds + minutes * 60 + hours * 3600 + (day - 1) * 3600 * 12;
+    }
+}
+
+vector<vector<double>> pars_coord_heights(std::string filename = "coord_heights.csv")
+{
+    std::ifstream file("data\\" + filename);
+    std::string line;
+    char delimiter = ';';
+    vector<double> coords;
+    vector<double> heights;
+
+    getline(file, line);
+    while (getline(file, line))
+    {
+        std::stringstream stream(line);
+        std::string coord;
+        std::string height;
+        
+        getline(stream, coord, delimiter);
+        getline(stream, height, delimiter);
+        coords.push_back(stod(coord));
+        heights.push_back(stod(height));
+    }
+}
+
+// Начало моделирования - 01.08.2021 00:00:00
+vector<vector<double>> parser_parameter(std::string filename)
+{
+    std::ifstream file("data\\" + filename);
+    std::string line;
+    char delimiter = ';';
+
+    vector<double> vals;
+    vector<double> times;
+
+    while (getline(file, line))
+    {
+        std::replace(line.begin(), line.end(), ',', '.');
+        std::stringstream stream(line);
+        std::string val;
+        std::string moment;
+
+        getline(stream, moment, delimiter);
+
+        if (moment.find(".08.2021") != std::string::npos)
+        {
+            getline(stream, val, delimiter);
+            vals.push_back(stod(val));
+            times.push_back(pars_time_line(moment));
+        }
+
+        
+    }
+    return { times, vals };
+}
 
 /// @brief Функция для записи только профилей давления 
 /// в разные моменты времени
@@ -292,54 +362,6 @@ TEST_F(Quasistationary, EulerWithMOC_step_inter)
 
 TEST_F(Quasistationary, NewtonWithMOC_step_inter)
 {
-    //// Зададим постоянный шаг для всех временных рядов
-    //double dt_par = 50;
-    //// Временные ряды для параметров
-    //vector<double> rho = { 800, 850, 870, 830, 860, 850 };
-    //vector<double> visc = { 10e-6, 12e-6, 14e-6, 11e-6, 14e-6, 13e-6 };
-    //vector<double> p_n = { 60.5e5, 61e5, 60.5e5, 59.8e5, 59e5, 60e5 };
-    //vector<double> p_L = { 52.5e5, 54.6e5, 53.5e5, 55.8e5, 54e5, 52e5 };
-
-    //// Создадим сущность, хранящую временные ряды
-    //parameters_series_t parameters;
-    //parameters.input_dens_visc(dt_par, rho, visc);
-    //parameters.input_parameters(dt_par, { p_n, p_L });
-
-    //// Буффер с проблемно-ориентированными слоями
-    //ring_buffer_t<density_viscosity_layer> buffer(2, pipe.profile.getPointCount());
-    //// Инициализация начальной плотности и вязкости в трубе
-    //auto& rho_initial = buffer.previous().density;
-    //auto& viscosity_initial = buffer.previous().viscosity;
-    //rho_initial = vector<double>(rho_initial.size(), oil.density.nominal_density);
-    //viscosity_initial = vector<double>(viscosity_initial.size(), oil.viscosity.nominal_viscosity);
-
-    //double modeling_time = 0;
-    //double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
-    //double pn = transport_moc_solver::interpolation(modeling_time, parameters.param_series[0]);
-    //double pL = transport_moc_solver::interpolation(modeling_time, parameters.param_series[1]);
-    //vector<double> Q_new = vector<double>(solve_newton_euler(buffer.previous(), pn, pL));
-
-    //while (modeling_time <= T)
-    //{
-
-    //    density_viscosity_layer& prev = buffer.previous();
-    //    density_viscosity_layer& next = buffer.current();
-
-
-    //    transport_moc_solver moc_solv(pipe, Q_new, prev, next);
-    //    modeling_time += moc_solv.prepare_step(); // получим шаг dt для Cr = 1
-    //    // Создаём массив краевых условий для метода характеристик
-    //    array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters.density_series, parameters.viscosity_series, "step");
-    //    moc_solv.step(par_in);
-
-    //    pn = transport_moc_solver::interpolation(modeling_time, parameters.param_series[0]);
-    //    pL = transport_moc_solver::interpolation(modeling_time, parameters.param_series[1]);
-
-    //    Q_new = vector<double>(solve_newton_euler(next, pn, pL));
-
-    //    buffer.advance(+1);
-
-    //}
 
 }
 
@@ -350,26 +372,7 @@ TEST_F(Quasistationary, Test_euler)
 
 TEST(ReadingCSV, TEST)
 {
-    std::ifstream file("LG/DUBN_NPS___.TI.TIN.csv");
-    std::string line;
-    char delimiter = ';';
-    
-    getline(file, line);
-
-    while (getline(file, line))
-    {
-        std::replace(line.begin(), line.end(), ',', '.');
-        std::cout << line << std::endl;
-        std::stringstream stream(line);
-        std::string val;
-        std::string time;
-        vector<double> vals;
-
-        getline(stream, time, delimiter);
-        while (getline(stream, val, delimiter))
-        {
-            vals.push_back(stod(val));
-        }
-    }
+    std::string data = "02.08.2021 03:02:01";
+    double moment = pars_time_line(data);
 
 }
