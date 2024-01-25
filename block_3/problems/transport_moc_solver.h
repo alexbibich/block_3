@@ -66,7 +66,7 @@ struct parameters_series_t
     /// @param dt постоянный шаг по времени
     /// @param density_vals Временной ряд плотности
     /// @param visc_vals Временной ряд вязкости
-    void input_dens_visc(double& dt, vector<double>& density_vals, vector<double>& visc_vals)
+    void input_dens_visc(double dt, vector<double>& density_vals, vector<double>& visc_vals)
     {
         vector<double> moments = build_series(dt, density_vals.size());
         density_series = build_parameters(moments, density_vals);
@@ -79,7 +79,7 @@ struct parameters_series_t
     /// @param density_vals значения плотности
     /// @param time_moments_visc моменты времени для вязкости
     /// @param visc_vals значения вязкости
-    void input_dens_visc(vector<double> time_moments_density, vector<double>& density_vals, vector<double> time_moments_visc, vector<double>& visc_vals)
+    void input_dens_visc(vector<double>& time_moments_density, vector<double>& density_vals, vector<double>& time_moments_visc, vector<double>& visc_vals)
     {
         vector<double> dens_moments =
             (time_moments_density.size() == 1)
@@ -88,7 +88,7 @@ struct parameters_series_t
         vector<double> visc_moments =
             (time_moments_visc.size() == 1)
             ? build_series(time_moments_visc[0], visc_vals.size())
-            : time_moments_density;
+            : time_moments_visc;
         density_series = build_parameters(dens_moments, density_vals);
         viscosity_series = build_parameters(visc_moments, visc_vals);
     }
@@ -117,7 +117,7 @@ struct parameters_series_t
     /// формирования временных рядов
     /// @param dt постоянный шаг по времени
     /// @param par Временные ряды параметров
-    void input_parameters(double& dt, vector<vector<double>> par)
+    void input_parameters(double dt, vector<vector<double>> par)
     {
         vector<double> moments = build_series(dt, par[0].size());
         for (size_t index = 0; index < par.size(); index++)
@@ -133,7 +133,7 @@ struct parameters_series_t
     /// @param moments Вектор моментов времени параметра
     /// @param parameter Вектор значений параметра
     /// @return временной ряд параметра
-    time_series_t build_parameters(vector<double>& moments, vector<double>& parameter)
+    static time_series_t build_parameters(vector<double>& moments, vector<double>& parameter)
     {
         time_series_t par(parameter.size());
         for (size_t index = 0; index < parameter.size(); index++)
@@ -149,7 +149,7 @@ struct parameters_series_t
     /// @param dt постоянный шаг
     /// @param length длина Временного ряда
     /// @return вектора моментов времени
-    vector<double> build_series(double& dt, size_t length)
+    vector<double> build_series(double dt, size_t length)
     {
         vector<double> time_ser(length);
         for (size_t index = 0; index < length; index++)
