@@ -167,7 +167,7 @@ public:
 
 protected:
     /// @brief Параметры трубы
-    pipe_properties_t pipe; 
+    pipe_properties_t pipe;
     /// @brief Параметры нефти
     oil_parameters_t oil;
     // Время моделирования
@@ -195,7 +195,7 @@ protected:
 
         pipe.profile = PipeProfile::create(n, x0, xl, z0, zl, p_capacity);
         pipe.wall.diameter = d;
-        
+
         vector<double> heights_inter(pipe.profile.getPointCount());
         size_t left_index_heights = 0;
         for (size_t index = 0; index < pipe.profile.getPointCount(); index++)

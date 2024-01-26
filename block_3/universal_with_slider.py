@@ -65,13 +65,14 @@ while True:
 
     init_func()
 
-    ax_time = plt.axes([0.15, 0.0001, 0.5, 0.04])
-    time_slider = Slider(ax_time, 'Steps', 0, len(time_moments)-1, valstep=1)
-    ax_textbox = fig.add_axes([0.75, 0.001, 0.2, 0.04])
-    text_box = TextBox(ax_textbox, "t =", textalignment="center")
-    text_box.set_val("0 c")
+    if len(time_moments) != 1:
+        ax_time = plt.axes([0.15, 0.0001, 0.5, 0.04])
+        time_slider = Slider(ax_time, 'Steps', 0, len(time_moments)-1, valstep=1)
+        ax_textbox = fig.add_axes([0.75, 0.001, 0.2, 0.04])
+        text_box = TextBox(ax_textbox, "t =", textalignment="center")
+        text_box.set_val("0 c")
 
-    time_slider.on_changed(change)
+        time_slider.on_changed(change)
 
     plt.subplots_adjust(bottom=0.12)
     #plt.tight_layout()
