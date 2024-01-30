@@ -307,9 +307,6 @@ TEST_F(Quasistationary, EulerWithMOC_step_inter)
 
 TEST_F(Quasistationary, TEST)
 {
-    std::string data = "02.08.2021 03:02:01";
-    double moment = pars_time_line(data);
-
     vector<vector<double>> rho_pars = parser_parameter("rho_in.csv");
     vector<vector<double>> visc_pars = parser_parameter("visc_in.csv");
     vector<vector<double>> p_n_pars = parser_parameter("p_in.csv");
@@ -350,7 +347,8 @@ TEST_F(Quasistationary, TEST)
     vector<double> initial_press_profile(pipe.profile.getPointCount());
     // Создаём вектор изменения давлений относитльно начального профиля
     vector<double> diff_prof(press_profile.size(), 0);
-    vector<double> diff_prof_pout;
+    vector<double> diff_prof_pout; 
+    vector<double> diff_prof_pout_precent;
     vector<double> modeling_moments;
 
 
@@ -402,7 +400,8 @@ TEST_F(Quasistationary, TEST)
         }
 
         double inter_pout = interpolation(modeling_time, parameters.param_series[2], parameters.params_left_index[2]);
-        diff_prof_pout.push_back(fabs(inter_pout - press_profile.back()) / inter_pout * 100);
+        diff_prof_pout_precent.push_back(fabs(inter_pout - press_profile.back()) / inter_pout * 100);
+        diff_prof_pout.push_back(inter_pout - press_profile.back());
         // Вывод в файлы
         write_profiles_problem(prev, dx, modeling_time);
         write_press_profile_only(press_profile, dx, modeling_time);
@@ -412,5 +411,6 @@ TEST_F(Quasistationary, TEST)
         modeling_time += moc_solv.prepare_step();
     }
 
-    uni_write(modeling_moments, 0, { diff_prof_pout }, "Время,Время моделирования,Погрешность (%)", "output/diff_press_pout.csv");
+    uni_write(modeling_moments, 0, { diff_prof_pout_precent }, "Время,Время моделирования,Погрешность (%)", "output/diff_press_pout_percent.csv");
+    uni_write(modeling_moments, 0, { diff_prof_pout }, "Время,Время моделирования,Погрешность (Па)", "output/diff_press_pout.csv");
 }
