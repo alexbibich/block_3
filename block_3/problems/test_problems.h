@@ -129,7 +129,7 @@ vector<vector<double>> pars_coord_heights(std::string filename = "coord_heights.
 }
 
 // Начало моделирования - 01.08.2021 00:00:00
-vector<vector<double>> parser_parameter(std::string filename, double bottom, double upper)
+vector<vector<double>> parser_parameter(std::string filename)
 {
     std::ifstream file("data\\" + filename);
     std::string line;
@@ -153,11 +153,9 @@ vector<vector<double>> parser_parameter(std::string filename, double bottom, dou
             dates.push_back(moment);
             getline(stream, val, delimiter);
             double value = stod(val);
-            if ((value >= bottom) && (value <= upper))
-            {
-                vals.push_back(value);
-                times.push_back(pars_time_line(moment));
-            }
+            vals.push_back(value);
+            times.push_back(pars_time_line(moment));
+            
         }
         
     }
