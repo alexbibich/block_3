@@ -9,6 +9,23 @@
 /// @brief тип данных для лямбды-функции в методе эйлера
 typedef std::function<double(size_t& index)> diff_function_t;
 
+vector<double> quantile_borders(vector<double> par)
+{
+    std::sort(par.begin(), par.end());
+
+    size_t median = (par.size() - 1) / 2;
+
+    size_t Q1 = median / 2;
+
+    size_t Q3 = median + Q1;
+
+    double IQR = par[Q3] - par[Q1];
+
+    vector<double> borders{ par[Q1] - 1.5 * IQR,  par[Q3] + 1.5 * IQR };
+
+    return borders;
+}
+
 /// @brief Функция для записи только профилей давления 
 /// в разные моменты времени
 /// @param press ссылка на профиль давления
@@ -137,7 +154,7 @@ vector<vector<double>> parser_parameter(std::string filename)
 
     vector<double> vals;
     vector<double> times;
-    vector<std::string> dates;
+    //vector<std::string> dates;
 
     while (getline(file, line))
     {
@@ -150,7 +167,7 @@ vector<vector<double>> parser_parameter(std::string filename)
 
         if (moment.find(".08.2021") != std::string::npos)
         {
-            dates.push_back(moment);
+            //dates.push_back(moment);
             getline(stream, val, delimiter);
             double value = stod(val);
             vals.push_back(value);
@@ -162,9 +179,28 @@ vector<vector<double>> parser_parameter(std::string filename)
 
     file.close();
 
-    //filename.erase(filename.length() - 4, 4);
+    vector<double> quant_borders = quantile_borders(vals);
+    for (size_t index = 0; index < vals.size(); index++)
+    {
+        //if (vals[index] < quant_borders[0] || vals[index] > quant_borders[1])
+        if (vals[index] < 0)
+        {
+            vals.erase(vals.begin() + index);
+            times.erase(times.begin() + index);
+        }
+    }
+
+    for (size_t index = 0; index < vals.size(); index++)
+    {
+        if (vals[index] < 0)
+        {
+            double value_n = vals[index];
+        }
+    }
+    filename.erase(filename.length() - 4, 4);
     //uni_write(times, 0, { vals }, "time,время_" + filename + ',' + filename, "time_series/" + filename + "_series.csv");
     //uni_write<std::string>(dates, 0, { vals }, "time,время_" + filename + ',' + filename, "time_series/" + filename + "_series.csv");
+    uni_write(times, 0, { vals }, "time,время_" + filename + ',' + filename, "time_series_clearing/" + filename + "_series.csv");
     return { times, vals };
 }
 
@@ -316,7 +352,7 @@ TEST_F(Quasistationary, EulerWithMOC_step_inter)
 };
 
 
-TEST_F(Quasistationary, TEST)
+TEST_F(Quasistationary, Tetsting)
 {
     vector<vector<double>> rho_pars = parser_parameter("rho_in.csv");
     vector<vector<double>> visc_pars = parser_parameter("visc_in.csv");
