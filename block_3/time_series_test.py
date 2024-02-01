@@ -45,7 +45,7 @@ def ini_draw(step=0):
     for i in range(len(parametersNames)):
         coordData = rawData[i][coordLabel[i]]
         paramData = rawData[i][parametersNames[i]]
-        plots.append(axes[i].plot(coordData, paramData, color='b'))
+        plots.append(axes[i].plot(coordData, paramData, 'ro', markersize=1))
 
 init_func()
 

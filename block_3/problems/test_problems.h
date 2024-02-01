@@ -170,8 +170,16 @@ vector<vector<double>> parser_parameter(std::string filename)
             //dates.push_back(moment);
             getline(stream, val, delimiter);
             double value = stod(val);
+
             vals.push_back(value);
             times.push_back(pars_time_line(moment));
+
+            /*if (value > 0)
+            {
+                vals.push_back(value);
+                times.push_back(pars_time_line(moment));
+            }*/
+            
             
         }
         
@@ -179,28 +187,12 @@ vector<vector<double>> parser_parameter(std::string filename)
 
     file.close();
 
-    vector<double> quant_borders = quantile_borders(vals);
-    for (size_t index = 0; index < vals.size(); index++)
-    {
-        //if (vals[index] < quant_borders[0] || vals[index] > quant_borders[1])
-        if (vals[index] < 0)
-        {
-            vals.erase(vals.begin() + index);
-            times.erase(times.begin() + index);
-        }
-    }
 
-    for (size_t index = 0; index < vals.size(); index++)
-    {
-        if (vals[index] < 0)
-        {
-            double value_n = vals[index];
-        }
-    }
     filename.erase(filename.length() - 4, 4);
+
     //uni_write(times, 0, { vals }, "time,время_" + filename + ',' + filename, "time_series/" + filename + "_series.csv");
     //uni_write<std::string>(dates, 0, { vals }, "time,время_" + filename + ',' + filename, "time_series/" + filename + "_series.csv");
-    uni_write(times, 0, { vals }, "time,время_" + filename + ',' + filename, "time_series_clearing/" + filename + "_series.csv");
+    //uni_write(times, 0, { vals }, "time,время_" + filename + ',' + filename, "time_series_clearing/" + filename + "_series.csv");
     return { times, vals };
 }
 
@@ -347,7 +339,8 @@ TEST_F(Quasistationary, EulerWithMOC_line_inter)
 
 TEST_F(Quasistationary, EulerWithMOC_step_inter)
 {
-    //body
+    //step
+
 
 };
 
