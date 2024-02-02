@@ -23,9 +23,8 @@ inline std::string get_test_string() {
     return test_string;
 }
 
-inline std::string prepare_test_folder()
+inline std::string prepare_test_folder(std::string path = "output/")
 {
-    std::string path = std::string("output/");
     std::filesystem::create_directories(path);
     return path;
 }
