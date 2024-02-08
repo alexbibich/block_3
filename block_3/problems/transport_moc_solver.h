@@ -38,6 +38,8 @@ double interpolation(double time_moment, const time_series_t& parameter, size_t&
     if (method == "line")
     {
         double dt = parameter[right_index][TIME_INDEX] - parameter[left_index][TIME_INDEX];
+        if (dt == 0)
+            return parameter[left_index][PAR_INDEX];
         double u1 = (parameter[right_index][TIME_INDEX] - time_moment) / dt;
         double u2 = (time_moment - parameter[left_index][TIME_INDEX]) / dt;
         res_par = parameter[left_index][PAR_INDEX] * u1 + parameter[right_index][PAR_INDEX] * u2;

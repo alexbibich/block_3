@@ -16,24 +16,8 @@
 #include "problems/newton_solver.h"
 #include "problems/euler_solver.h"
 
-
-inline std::string get_test_string() {
-    auto test_info = ::testing::UnitTest::GetInstance()->current_test_info();
-    auto test_string = std::string(test_info->test_case_name()) + "." + std::string(test_info->name());
-    return test_string;
-}
-
-inline std::string prepare_test_folder(std::string path = "output/")
-{
-    std::filesystem::create_directories(path);
-    return path;
-}
-
-
-
 int main(int argc, char** argv)
 {
-    prepare_test_folder();
     ::testing::InitGoogleTest(&argc, argv);
 #ifdef _WIN32
     std::wcout.imbue(std::locale("rus_rus.866"));
