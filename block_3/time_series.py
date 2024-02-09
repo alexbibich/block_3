@@ -13,7 +13,7 @@ for plot in plots:
     #if 'p_' in plot or 'Q_' in plot:
         
         
-    if '.csv' in plot:
+    if 'series.csv' in plot:
         dfs.append(pd.read_csv(f'time_series/{plot}', encoding='windows-1251'))
             
 

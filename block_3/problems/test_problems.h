@@ -245,7 +245,7 @@ protected:
 
         pipe.profile.heights = heights_inter;
 
-        // uni_write(pipe.profile.coordinates, 0, { pipe.profile.heights }, "Время,Координаты,Высотки", "output\\test_pars_pipe.csv");
+        uni_write(pipe.profile.coordinates, 0, { pipe.profile.heights }, "Время,Координаты,Высотки", "time_series/pipe_coord_heights.csv");
 
         rho_pars = parser_parameter("rho_in.csv");
         visc_pars = parser_parameter("visc_in.csv");
@@ -340,7 +340,7 @@ TEST_F(Quasistationary, WithStationaryMean)
     }
 
     uni_write(modeling_moments, 0, { diff_prof_pout }, 
-        "Время,Время моделирования,Погрешность стационара - средняя реология (Па)", path + "diff_press_pout.csv");
+        "Время,Время моделирования,Стац - средняя реология", path + "diff_press_pout.csv");
 };
 
 TEST_F(Quasistationary, WithStationaryCurrent)
@@ -424,7 +424,7 @@ TEST_F(Quasistationary, WithStationaryCurrent)
     }
 
     uni_write(modeling_moments, 0, { diff_prof_pout },
-        "Время,Время моделирования,Погрешность стационара - текущая реология (Па)", path + "diff_press_pout.csv");
+        "Время,Время моделирования,Стац - текущая реология", path + "diff_press_pout.csv");
 };
 
 
@@ -520,7 +520,7 @@ TEST_F(Quasistationary, QuasiWithStepInter)
     }
 
     uni_write(modeling_moments, 0, { diff_prof_pout }, 
-        "Время,Время моделирования,Погрешность квазистаца при инетрполяции ступеньками (Па)", path + "diff_press_pout.csv");
+        "Время,Время моделирования,Квазистац - ступеньки", path + "diff_press_pout.csv");
 };
 
 TEST_F(Quasistationary, QuasiWithLineInter)
@@ -615,5 +615,5 @@ TEST_F(Quasistationary, QuasiWithLineInter)
     }
 
     uni_write(modeling_moments, 0, { diff_prof_pout },
-        "Время,Время моделирования,Погрешность квазистаца при линейной интерполяции (Па)", path + "diff_press_pout.csv");
+        "Время,Время моделирования,Квазистац - линейная", path + "diff_press_pout.csv");
 };
