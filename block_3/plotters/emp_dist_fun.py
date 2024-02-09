@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 import os
+from statsmodels.distributions.empirical_distribution import ECDF
 
 
 path = '../research_out/Quasistationary/'
@@ -22,10 +22,17 @@ while True:
     except:
         print("неверный ввод")
 
-data = pd.read_csv(path + file + '/diff_press_pout.csv', encoding='windows-1251')
-name = data.columns.tolist()[2]
+df = pd.read_csv(path + file + '/diff_press_pout.csv', encoding='windows-1251')
+name = df.columns.tolist()[2]
 
-test = [0, 2, 2, 6]
+ecdf = ECDF(df[name])
+plt.plot(ecdf.x, ecdf.y)
+plt.grid(visible=True)
 
-sns.kdeplot(test, cumulative=True)
+plt.xlabel('x')
+plt.ylabel('F(x)')
 
+plt.axhline(y = 0.05, color = 'r', linestyle = '--') 
+plt.axhline(y = 0.95, color = 'r', linestyle = '--') 
+
+plt.show()

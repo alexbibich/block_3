@@ -64,3 +64,19 @@ plt.subplots_adjust(left=0.05, bottom=0.06, right=0.976, top=0.967,
 
 plt.show()
 
+#data_clean = data[name].tolist()
+#data_clean.sort()
+
+#median = int((len(data_clean) - 1) / 2)
+
+#Q1 = int(median / 2)
+
+#Q3 = median + Q1
+
+#IQR = data_clean[Q3] - data_clean[Q1]
+
+#data_itog = []
+
+#for da in data_clean:
+    #if (da >= Q1 - 1.5 * IQR) and (da <= Q3 + 1.5 * IQR):
+        #data_itog.append(da)
