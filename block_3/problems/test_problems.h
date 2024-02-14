@@ -195,7 +195,18 @@ vector<vector<double>> parser_parameter(std::string filename)
 class Quasistationary : public ::testing::Test
 {
 public:
+    void write_press(double dx, double moment, vector<double>& press_profile, vector<double>& diff_prof, std::string path)
+    {
+        write_press_profile_only(press_profile, dx, moment, path + "press_prof.csv");
+        write_press_profile_only(diff_prof, dx, moment, path + "diff_press_profile.csv");
+    }
 
+    void write_diff(vector<double>& moments, vector<double>& diff_prof, std::string name, std::string path)
+    {
+        std::transform(diff_prof.begin(), diff_prof.end(), diff_prof.begin(), [](double p) {return p / 1000;  });
+        uni_write(moments, 0, { diff_prof },
+            "Время,Время моделирования," + name, path + "diff_press_pout.csv");
+    }
 
 protected:
     /// @brief Параметры трубы
@@ -266,6 +277,7 @@ protected:
 
 TEST_F(Quasistationary, WithStationaryMean)
 {
+    std::string method = "step";
     std::string path = prepare_test_folder();
 
     double mean_density = std::accumulate(rho_pars[1].begin(), rho_pars[1].end(), 0.0) / rho_pars[1].size();
@@ -297,8 +309,8 @@ TEST_F(Quasistationary, WithStationaryMean)
     {
 
         // Вектор скорости потока по координате
-        double Q_in = interpolation(modeling_time, parameters.param_series[1], parameters.params_left_index[1], "step");
-        double Q_out = interpolation(modeling_time, parameters.param_series[3], parameters.params_left_index[3], "step");
+        double Q_in = interpolation(modeling_time, parameters.param_series[1], parameters.params_left_index[1], method);
+        double Q_out = interpolation(modeling_time, parameters.param_series[3], parameters.params_left_index[3], method);
         double Q_n = (Q_in + Q_out) / 2;
         vector<double> Q(pipe.profile.getPointCount(), Q_n);
 
@@ -308,7 +320,7 @@ TEST_F(Quasistationary, WithStationaryMean)
             // Создаем расчетную модель трубы
             Pipe_model_for_PQ_t pipeModel(pipe, rho_prof, visc_prof, Q_n);
 
-            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], "step");
+            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], method);
 
             solve_euler_corrector<1>(pipeModel, 1, p_n, &press_profile);
 
@@ -317,7 +329,7 @@ TEST_F(Quasistationary, WithStationaryMean)
         else
         {
 
-            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], "step");
+            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], method);
 
             // Создаем расчетную модель трубы
             Pipe_model_for_PQ_t pipeModel(pipe, rho_prof, visc_prof, Q_n);
@@ -329,22 +341,21 @@ TEST_F(Quasistationary, WithStationaryMean)
                 [](double initial, double current) {return initial - current; });
         }
 
-        double inter_pout = interpolation(modeling_time, parameters.param_series[2], parameters.params_left_index[2], "step");
+        double inter_pout = interpolation(modeling_time, parameters.param_series[2], parameters.params_left_index[2], method);
         diff_prof_pout.push_back(inter_pout - press_profile.back());
         // Вывод в файлы
-        write_press_profile_only(press_profile, dx, modeling_time, path + "press_prof.csv");
-        write_press_profile_only(diff_prof, dx, modeling_time, path + "diff_press_profile.csv");
+        write_press(dx, modeling_time, press_profile, diff_prof, path);
 
         modeling_moments.push_back(modeling_time);
         modeling_time += dt;
     }
 
-    uni_write(modeling_moments, 0, { diff_prof_pout }, 
-        "Время,Время моделирования,Стац - средняя реология", path + "diff_press_pout.csv");
+    write_diff(modeling_moments, diff_prof_pout, "Стац - средняя реология", path);
 };
 
 TEST_F(Quasistationary, WithStationaryCurrent)
 {
+    std::string method = "step";
     std::string path = prepare_test_folder();
 
     double mean_density = std::accumulate(rho_pars[1].begin(), rho_pars[1].end(), 0.0) / rho_pars[1].size();
@@ -377,22 +388,22 @@ TEST_F(Quasistationary, WithStationaryCurrent)
     {
 
         // Вектор скорости потока по координате
-        double Q_in = interpolation(modeling_time, parameters.param_series[1], parameters.params_left_index[1], "step");
-        double Q_out = interpolation(modeling_time, parameters.param_series[3], parameters.params_left_index[3], "step");
+        double Q_in = interpolation(modeling_time, parameters.param_series[1], parameters.params_left_index[1], method);
+        double Q_out = interpolation(modeling_time, parameters.param_series[3], parameters.params_left_index[3], method);
         double Q_n = (Q_in + Q_out) / 2;
         vector<double> Q(pipe.profile.getPointCount(), Q_n);
 
         vector<double> rho_prof(pipe.profile.getPointCount(), 
-            interpolation(modeling_time, parameters.density_series, parameters.density_left_index, "step"));
+            interpolation(modeling_time, parameters.density_series, parameters.density_left_index, method));
         vector<double> visc_prof(pipe.profile.getPointCount(), 
-            interpolation(modeling_time, parameters.viscosity_series, parameters.viscosity_left_index, "step"));
+            interpolation(modeling_time, parameters.viscosity_series, parameters.viscosity_left_index, method));
 
         if (modeling_time == 0)
         {
             // Создаем расчетную модель трубы
             Pipe_model_for_PQ_t pipeModel(pipe, rho_prof, visc_prof, Q_n);
 
-            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], "step");
+            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], method);
 
             solve_euler_corrector<1>(pipeModel, 1, p_n, &press_profile);
 
@@ -401,7 +412,7 @@ TEST_F(Quasistationary, WithStationaryCurrent)
         else
         {
 
-            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], "step");
+            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], method);
 
             // Создаем расчетную модель трубы
             Pipe_model_for_PQ_t pipeModel(pipe, rho_prof, visc_prof, Q_n);
@@ -413,23 +424,22 @@ TEST_F(Quasistationary, WithStationaryCurrent)
                 [](double initial, double current) {return initial - current; });
         }
 
-        double inter_pout = interpolation(modeling_time, parameters.param_series[2], parameters.params_left_index[2], "step");
+        double inter_pout = interpolation(modeling_time, parameters.param_series[2], parameters.params_left_index[2], method);
         diff_prof_pout.push_back(inter_pout - press_profile.back());
         // Вывод в файлы
-        write_press_profile_only(press_profile, dx, modeling_time, path + "press_prof.csv");
-        write_press_profile_only(diff_prof, dx, modeling_time, path + "diff_press_profile.csv");
+        write_press(dx, modeling_time, press_profile, diff_prof, path);
 
         modeling_moments.push_back(modeling_time);
         modeling_time += dt;
     }
 
-    uni_write(modeling_moments, 0, { diff_prof_pout },
-        "Время,Время моделирования,Стац - текущая реология", path + "diff_press_pout.csv");
+    write_diff(modeling_moments, diff_prof_pout, "Стац - текущая реология", path);
 };
 
 
 TEST_F(Quasistationary, QuasiWithStepInter)
 {
+    std::string method = "step";
     std::string path = prepare_test_folder();
 
     parameters_series_t parameters;
@@ -447,8 +457,8 @@ TEST_F(Quasistationary, QuasiWithStepInter)
     // Инициализация начальной плотности и вязкости в трубе
     auto& rho_initial = buffer.previous().density;
     auto& viscosity_initial = buffer.previous().viscosity;
-    rho_initial = vector<double>(rho_initial.size(), interpolation(0, parameters.density_series, parameters.density_left_index, "step"));
-    viscosity_initial = vector<double>(viscosity_initial.size(), interpolation(0, parameters.viscosity_series, parameters.viscosity_left_index, "step"));
+    rho_initial = vector<double>(rho_initial.size(), interpolation(0, parameters.density_series, parameters.density_left_index, method));
+    viscosity_initial = vector<double>(viscosity_initial.size(), interpolation(0, parameters.viscosity_series, parameters.viscosity_left_index, method));
 
     double modeling_time = 0;
     double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
@@ -467,8 +477,8 @@ TEST_F(Quasistationary, QuasiWithStepInter)
     {
 
         // Вектор скорости потока по координате
-        double Q_in = interpolation(modeling_time, parameters.param_series[1], parameters.params_left_index[1], "step");
-        double Q_out = interpolation(modeling_time, parameters.param_series[3], parameters.params_left_index[3], "step");
+        double Q_in = interpolation(modeling_time, parameters.param_series[1], parameters.params_left_index[1], method);
+        double Q_out = interpolation(modeling_time, parameters.param_series[3], parameters.params_left_index[3], method);
         double Q_n = (Q_in + Q_out) / 2;
         vector<double> Q(pipe.profile.getPointCount(), Q_n);
 
@@ -483,7 +493,7 @@ TEST_F(Quasistationary, QuasiWithStepInter)
             // Создаем расчетную модель трубы
             Pipe_model_for_PQ_t pipeModel(pipe, prev.density, prev.viscosity, Q_n);
 
-            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], "step");
+            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], method);
 
             solve_euler_corrector<1>(pipeModel, 1, p_n, &press_profile);
 
@@ -491,10 +501,10 @@ TEST_F(Quasistationary, QuasiWithStepInter)
         }
         else
         {
-            array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters, "step");
+            array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters, method);
             moc_solv.step(par_in);
 
-            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], "step");
+            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], method);
 
             // Создаем расчетную модель трубы
             Pipe_model_for_PQ_t pipeModel(pipe, next.density, next.viscosity, Q_n);
@@ -508,23 +518,22 @@ TEST_F(Quasistationary, QuasiWithStepInter)
             buffer.advance(+1);
         }
 
-        double inter_pout = interpolation(modeling_time, parameters.param_series[2], parameters.params_left_index[2], "step");
+        double inter_pout = interpolation(modeling_time, parameters.param_series[2], parameters.params_left_index[2], method);
         diff_prof_pout.push_back(inter_pout - press_profile.back());
         // Вывод в файлы
         write_profiles_problem(prev, dx, modeling_time, path);
-        write_press_profile_only(press_profile, dx, modeling_time, path + "press_prof.csv");
-        write_press_profile_only(diff_prof, dx, modeling_time, path + "diff_press_profile.csv");
+        write_press(dx, modeling_time, press_profile, diff_prof, path);
 
         modeling_moments.push_back(modeling_time);
         modeling_time += moc_solv.prepare_step();
     }
 
-    uni_write(modeling_moments, 0, { diff_prof_pout }, 
-        "Время,Время моделирования,Квазистац - ступеньки", path + "diff_press_pout.csv");
+    write_diff(modeling_moments, diff_prof_pout, "Квазистац - ступеньки", path);
 };
 
 TEST_F(Quasistationary, QuasiWithLineInter)
 {
+    std::string method = "line";
     std::string path = prepare_test_folder();
 
     parameters_series_t parameters;
@@ -542,8 +551,8 @@ TEST_F(Quasistationary, QuasiWithLineInter)
     // Инициализация начальной плотности и вязкости в трубе
     auto& rho_initial = buffer.previous().density;
     auto& viscosity_initial = buffer.previous().viscosity;
-    rho_initial = vector<double>(rho_initial.size(), interpolation(0, parameters.density_series, parameters.density_left_index, "line"));
-    viscosity_initial = vector<double>(viscosity_initial.size(), interpolation(0, parameters.viscosity_series, parameters.viscosity_left_index, "line"));
+    rho_initial = vector<double>(rho_initial.size(), interpolation(0, parameters.density_series, parameters.density_left_index, method));
+    viscosity_initial = vector<double>(viscosity_initial.size(), interpolation(0, parameters.viscosity_series, parameters.viscosity_left_index, method));
 
     double modeling_time = 0;
     double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
@@ -562,8 +571,8 @@ TEST_F(Quasistationary, QuasiWithLineInter)
     {
 
         // Вектор скорости потока по координате
-        double Q_in = interpolation(modeling_time, parameters.param_series[1], parameters.params_left_index[1], "line");
-        double Q_out = interpolation(modeling_time, parameters.param_series[3], parameters.params_left_index[3], "line");
+        double Q_in = interpolation(modeling_time, parameters.param_series[1], parameters.params_left_index[1], method);
+        double Q_out = interpolation(modeling_time, parameters.param_series[3], parameters.params_left_index[3], method);
         double Q_n = (Q_in + Q_out) / 2;
         vector<double> Q(pipe.profile.getPointCount(), Q_n);
 
@@ -578,7 +587,7 @@ TEST_F(Quasistationary, QuasiWithLineInter)
             // Создаем расчетную модель трубы
             Pipe_model_for_PQ_t pipeModel(pipe, prev.density, prev.viscosity, Q_n);
 
-            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], "line");
+            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], method);
 
             solve_euler_corrector<1>(pipeModel, 1, p_n, &press_profile);
 
@@ -586,10 +595,10 @@ TEST_F(Quasistationary, QuasiWithLineInter)
         }
         else
         {
-            array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters, "line");
+            array<double, 2> par_in = moc_solv.get_par_in(modeling_time, parameters, method);
             moc_solv.step(par_in);
 
-            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], "line");
+            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], method);
 
             // Создаем расчетную модель трубы
             Pipe_model_for_PQ_t pipeModel(pipe, next.density, next.viscosity, Q_n);
@@ -603,17 +612,15 @@ TEST_F(Quasistationary, QuasiWithLineInter)
             buffer.advance(+1);
         }
 
-        double inter_pout = interpolation(modeling_time, parameters.param_series[2], parameters.params_left_index[2], "line");
+        double inter_pout = interpolation(modeling_time, parameters.param_series[2], parameters.params_left_index[2], method);
         diff_prof_pout.push_back(inter_pout - press_profile.back());
         // Вывод в файлы
         write_profiles_problem(prev, dx, modeling_time, path);
-        write_press_profile_only(press_profile, dx, modeling_time, path + "press_prof.csv");
-        write_press_profile_only(diff_prof, dx, modeling_time, path + "diff_press_profile.csv");
+        write_press(dx, modeling_time, press_profile, diff_prof, path);
 
         modeling_moments.push_back(modeling_time);
         modeling_time += moc_solv.prepare_step();
     }
 
-    uni_write(modeling_moments, 0, { diff_prof_pout },
-        "Время,Время моделирования,Квазистац - линейная", path + "diff_press_pout.csv");
+    write_diff(modeling_moments, diff_prof_pout, "Квазистац - линейная", path);
 };

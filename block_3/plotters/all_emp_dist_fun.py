@@ -39,7 +39,7 @@ def init_func():
     for i in range(len(axes)):
         axes[i].clear()
         axes[i].grid(visible=True)
-        axes[i].set_xlabel(name_OX)
+        axes[i].set_xlabel('Погрешность давления, Па')
         axes[i].set_ylabel(parameters_names[i])
         axes[i].set_xlim(x_left, x_right)
 
