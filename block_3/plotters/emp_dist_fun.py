@@ -2,8 +2,19 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
-from statsmodels.distributions.empirical_distribution import ECDF
+from scipy import stats
 
+def find_prob_x(quant, prob, p, q):
+    min_flag = True
+    for i in range(len(prob)):
+        if prob[i] >= q and min_flag:
+            i_min = i
+            min_flag = False
+        if prob[i] > p + q:
+            i_max = i - 1
+            return quant[i_min], quant[i_max]
+        
+        
 
 path = '../research_out/Quasistationary/'
 
@@ -25,14 +36,31 @@ while True:
 df = pd.read_csv(path + file + '/diff_press_pout.csv', encoding='windows-1251')
 name = df.columns.tolist()[2]
 
-ecdf = ECDF(df[name])
-plt.plot(ecdf.x, ecdf.y)
+res = stats.ecdf(df[name])
+#res.cdf.plot()
+plt.ecdf(df[name])
 plt.grid(visible=True)
+
+p = 0.90
+q = (1 - p) / 2
+
+[imin, imax] = find_prob_x(res.cdf.quantiles, res.cdf.probabilities, p, q)
+
 
 plt.xlabel('x')
 plt.ylabel('F(x)')
+fsize = 11
+msize = 5
+plt.text(imin - 50, 0.08, f'{imin}', fontsize=fsize)
+plt.text(imin + 150, 0.90, f'{imax}', fontsize=fsize)
+plt.text(-180, 0.5, f'delta = {imax - imin}', fontsize=fsize, bbox={'facecolor': 'white', 'alpha': 1})
+plt.text(-190, p, f'p = {p:.2f}', fontsize=fsize, bbox={'facecolor': 'white', 'alpha': 1})
 
-plt.axhline(y = 0.05, color = 'r', linestyle = '--') 
-plt.axhline(y = 0.95, color = 'r', linestyle = '--') 
+plt.xlim(-200, 200)
+
+plt.axhline(y = q, color = 'r', linestyle = '--') 
+plt.axhline(y = p + q, color = 'r', linestyle = '--') 
+plt.plot(imin, q, 'bo', markersize=msize)
+plt.plot(imax, p + q, 'bo', markersize=msize)
 
 plt.show()

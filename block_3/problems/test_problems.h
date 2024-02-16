@@ -219,13 +219,27 @@ protected:
     double p0 = 6e6;
     // Расход потока
     double flow = 0.5;
-
+   
+    double dx;
+    // Хранилище временных рядов
+    parameters_series_t parameters;
+    // Переменные для считывания данных
     vector<vector<double>> rho_pars;
     vector<vector<double>> visc_pars;
     vector<vector<double>> p_n_pars;
     vector<vector<double>> Q_pars;
     vector<vector<double>> p_l_pars;
     vector<vector<double>> Q_out_pars;
+    // Профиль давления вдоль трубопровода
+    vector<double> press_profile;
+    // Профиль для начального профиля давления
+    vector<double> initial_press_profile;
+    // Создаём вектор изменения давлений относитльно начального профиля
+    vector<double> diff_prof;
+    vector<double> diff_prof_pout;
+    vector<double> modeling_moments;
+
+    
 
 
     /// @brief Конструктор, инициализирующий параметры трубы и нефти 
@@ -270,6 +284,22 @@ protected:
         std::transform(Q_pars[1].begin(), Q_pars[1].end(), Q_pars[1].begin(), [](double p) { return p / 3600; });
         std::transform(p_l_pars[1].begin(), p_l_pars[1].end(), p_l_pars[1].begin(), [](double p) { return p * 1e6; });
         std::transform(Q_out_pars[1].begin(), Q_out_pars[1].end(), Q_out_pars[1].begin(), [](double p) { return p / 3600; });
+
+        parameters.input_dens_visc(
+            rho_pars[0], rho_pars[1],
+            visc_pars[0], visc_pars[1]
+        );
+        parameters.input_parameters(
+            { p_n_pars[0], Q_pars[0], p_l_pars[0], Q_out_pars[0] },
+            { p_n_pars[1], Q_pars[1], p_l_pars[1], Q_out_pars[1] }
+        );
+
+        // Задание размеров профилей
+        press_profile = vector<double>(pipe.profile.getPointCount());
+        initial_press_profile = vector<double>(pipe.profile.getPointCount());
+        diff_prof = vector<double>(press_profile.size(), 0);
+
+        double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
     }
 };
 
@@ -283,27 +313,11 @@ TEST_F(Quasistationary, WithStationaryMean)
     double mean_density = std::accumulate(rho_pars[1].begin(), rho_pars[1].end(), 0.0) / rho_pars[1].size();
     double mean_visc = std::accumulate(visc_pars[1].begin(), visc_pars[1].end(), 0.0) / visc_pars[1].size();
 
-    parameters_series_t parameters;
-    parameters.input_parameters(
-        { p_n_pars[0], Q_pars[0], p_l_pars[0], Q_out_pars[0] },
-        { p_n_pars[1], Q_pars[1], p_l_pars[1], Q_out_pars[1] }
-    );
-
     vector<double> rho_prof(pipe.profile.getPointCount(), mean_density);
     vector<double> visc_prof(pipe.profile.getPointCount(), mean_visc);
 
     double modeling_time = 0;
-    double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
     double dt = 500;
-
-
-    vector<double> press_profile(pipe.profile.getPointCount());
-    // Профиль для начального профиля давления
-    vector<double> initial_press_profile(pipe.profile.getPointCount());
-    // Создаём вектор изменения давлений относитльно начального профиля
-    vector<double> diff_prof(press_profile.size(), 0);
-    vector<double> diff_prof_pout;
-    vector<double> modeling_moments;
         
     while (modeling_time <= T)
     {
@@ -358,31 +372,8 @@ TEST_F(Quasistationary, WithStationaryCurrent)
     std::string method = "step";
     std::string path = prepare_test_folder();
 
-    double mean_density = std::accumulate(rho_pars[1].begin(), rho_pars[1].end(), 0.0) / rho_pars[1].size();
-    double mean_visc = std::accumulate(visc_pars[1].begin(), visc_pars[1].end(), 0.0) / visc_pars[1].size();
-
-    parameters_series_t parameters;
-    parameters.input_dens_visc(
-        rho_pars[0], rho_pars[1],
-        visc_pars[0], visc_pars[1]
-    );
-    parameters.input_parameters(
-        { p_n_pars[0], Q_pars[0], p_l_pars[0], Q_out_pars[0] },
-        { p_n_pars[1], Q_pars[1], p_l_pars[1], Q_out_pars[1] }
-    );
-
     double modeling_time = 0;
-    double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
     double dt = 500;
-
-
-    vector<double> press_profile(pipe.profile.getPointCount());
-    // Профиль для начального профиля давления
-    vector<double> initial_press_profile(pipe.profile.getPointCount());
-    // Создаём вектор изменения давлений относитльно начального профиля
-    vector<double> diff_prof(press_profile.size(), 0);
-    vector<double> diff_prof_pout;
-    vector<double> modeling_moments;
 
     while (modeling_time <= T)
     {
@@ -393,10 +384,68 @@ TEST_F(Quasistationary, WithStationaryCurrent)
         double Q_n = (Q_in + Q_out) / 2;
         vector<double> Q(pipe.profile.getPointCount(), Q_n);
 
-        vector<double> rho_prof(pipe.profile.getPointCount(), 
+        vector<double> rho_prof(pipe.profile.getPointCount(),
             interpolation(modeling_time, parameters.density_series, parameters.density_left_index, method));
-        vector<double> visc_prof(pipe.profile.getPointCount(), 
+        vector<double> visc_prof(pipe.profile.getPointCount(),
             interpolation(modeling_time, parameters.viscosity_series, parameters.viscosity_left_index, method));
+
+        if (modeling_time == 0)
+        {
+            // Создаем расчетную модель трубы
+            Pipe_model_for_PQ_t pipeModel(pipe, rho_prof, visc_prof, Q_n);
+
+            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], method);
+
+            solve_euler_corrector<1>(pipeModel, 1, p_n, &press_profile);
+
+            initial_press_profile = press_profile;
+        }
+        else
+        {
+
+            double p_n = interpolation(modeling_time, parameters.param_series[0], parameters.params_left_index[0], method);
+
+            // Создаем расчетную модель трубы
+            Pipe_model_for_PQ_t pipeModel(pipe, rho_prof, visc_prof, Q_n);
+
+            solve_euler_corrector<1>(pipeModel, 1, p_n, &press_profile);
+
+            // получение вектора изменения давлений относитльно начального профиля
+            std::transform(initial_press_profile.begin(), initial_press_profile.end(), press_profile.begin(), diff_prof.begin(),
+                [](double initial, double current) {return initial - current; });
+        }
+
+        double inter_pout = interpolation(modeling_time, parameters.param_series[2], parameters.params_left_index[2], method);
+        diff_prof_pout.push_back(inter_pout - press_profile.back());
+        // Вывод в файлы
+        write_press(dx, modeling_time, press_profile, diff_prof, path);
+
+        modeling_moments.push_back(modeling_time);
+        modeling_time += dt;
+    }
+
+    write_diff(modeling_moments, diff_prof_pout, "Стац - текущая реология", path);
+};
+
+TEST_F(Quasistationary, WithStationaryBegin)
+{
+    std::string method = "step";
+    std::string path = prepare_test_folder();
+
+    double modeling_time = 0;
+    double dt = 500;
+
+    vector<double> rho_prof(pipe.profile.getPointCount(), parameters.density_series[0][1]);
+    vector<double> visc_prof(pipe.profile.getPointCount(), parameters.viscosity_series[0][1]);
+
+    while (modeling_time <= T)
+    {
+
+        // Вектор скорости потока по координате
+        double Q_in = interpolation(modeling_time, parameters.param_series[1], parameters.params_left_index[1], method);
+        double Q_out = interpolation(modeling_time, parameters.param_series[3], parameters.params_left_index[3], method);
+        double Q_n = (Q_in + Q_out) / 2;
+        vector<double> Q(pipe.profile.getPointCount(), Q_n);
 
         if (modeling_time == 0)
         {
@@ -442,16 +491,6 @@ TEST_F(Quasistationary, QuasiWithStepInter)
     std::string method = "step";
     std::string path = prepare_test_folder();
 
-    parameters_series_t parameters;
-    parameters.input_dens_visc(
-        rho_pars[0], rho_pars[1], 
-        visc_pars[0], visc_pars[1]
-    );
-    parameters.input_parameters(
-        { p_n_pars[0], Q_pars[0], p_l_pars[0], Q_out_pars[0]},
-        { p_n_pars[1], Q_pars[1], p_l_pars[1], Q_out_pars[1]}
-    );
-
     // Буффер с проблемно-ориентированными слоями
     ring_buffer_t<density_viscosity_layer> buffer(2, pipe.profile.getPointCount());
     // Инициализация начальной плотности и вязкости в трубе
@@ -461,16 +500,6 @@ TEST_F(Quasistationary, QuasiWithStepInter)
     viscosity_initial = vector<double>(viscosity_initial.size(), interpolation(0, parameters.viscosity_series, parameters.viscosity_left_index, method));
 
     double modeling_time = 0;
-    double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
-
-
-    vector<double> press_profile(pipe.profile.getPointCount());
-    // Профиль для начального профиля давления
-    vector<double> initial_press_profile(pipe.profile.getPointCount());
-    // Создаём вектор изменения давлений относитльно начального профиля
-    vector<double> diff_prof(press_profile.size(), 0);
-    vector<double> diff_prof_pout; 
-    vector<double> modeling_moments;
 
 
     while (modeling_time <= T)
@@ -536,16 +565,6 @@ TEST_F(Quasistationary, QuasiWithLineInter)
     std::string method = "line";
     std::string path = prepare_test_folder();
 
-    parameters_series_t parameters;
-    parameters.input_dens_visc(
-        rho_pars[0], rho_pars[1],
-        visc_pars[0], visc_pars[1]
-    );
-    parameters.input_parameters(
-        { p_n_pars[0], Q_pars[0], p_l_pars[0], Q_out_pars[0] },
-        { p_n_pars[1], Q_pars[1], p_l_pars[1], Q_out_pars[1] }
-    );
-
     // Буффер с проблемно-ориентированными слоями
     ring_buffer_t<density_viscosity_layer> buffer(2, pipe.profile.getPointCount());
     // Инициализация начальной плотности и вязкости в трубе
@@ -555,16 +574,6 @@ TEST_F(Quasistationary, QuasiWithLineInter)
     viscosity_initial = vector<double>(viscosity_initial.size(), interpolation(0, parameters.viscosity_series, parameters.viscosity_left_index, method));
 
     double modeling_time = 0;
-    double dx = pipe.profile.coordinates[1] - pipe.profile.coordinates[0];
-
-
-    vector<double> press_profile(pipe.profile.getPointCount());
-    // Профиль для начального профиля давления
-    vector<double> initial_press_profile(pipe.profile.getPointCount());
-    // Создаём вектор изменения давлений относитльно начального профиля
-    vector<double> diff_prof(press_profile.size(), 0);
-    vector<double> diff_prof_pout;
-    vector<double> modeling_moments;
 
 
     while (modeling_time <= T)
